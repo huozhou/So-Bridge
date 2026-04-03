@@ -389,39 +389,6 @@ export function renderProfileAdminPage(): string {
         </article>
       </section>
 
-      <section class="shell panel">
-        <h2>Project Whitelist</h2>
-        <p>Restricted mode requires a selected project. Open mode remains available when no specific project should be enforced.</p>
-
-        <form id="directory-policy-form" class="stack">
-          <div class="split">
-            <div class="control">
-              <label for="directory-mode-field">Mode</label>
-              <select id="directory-mode-field" class="select" name="mode">
-                <option value="open">Open</option>
-                <option value="restricted">Restricted</option>
-              </select>
-            </div>
-            <div class="control">
-              <label for="selected-path-field">Selected Project</label>
-              <select id="selected-path-field" class="select" name="selectedPath">
-                <option value="">No selected project</option>
-              </select>
-            </div>
-          </div>
-
-          <div class="control">
-            <label for="allowed-paths-field">Allowed Paths</label>
-            <textarea id="allowed-paths-field" class="textarea" name="allowedPaths" placeholder="/repo/a&#10;/repo/b"></textarea>
-          </div>
-
-          <div class="warning" id="directory-warning">
-            Open mode allows so-bridge to run without a selected project. Use it only when you want unrestricted behavior.
-          </div>
-
-          <button type="submit">Apply Project Whitelist</button>
-        </form>
-      </section>
     </main>
 
     <script type="module">
@@ -457,7 +424,6 @@ export function renderProfileAdminPage(): string {
       const aiList = document.querySelector("#ai-assistants");
       const botForm = document.querySelector("#bot-form");
       const assistantForm = document.querySelector("#assistant-form");
-      const directoryForm = document.querySelector("#directory-policy-form");
       const botPlatformField = document.querySelector("#bot-platform");
       const botCredentialPrimaryField = document.querySelector("#bot-credential-primary");
       const botCredentialSecondaryField = document.querySelector("#bot-credential-secondary");
@@ -471,7 +437,6 @@ export function renderProfileAdminPage(): string {
       const assistantEndpointField = document.querySelector("#assistant-endpoint");
       const assistantProviderError = document.querySelector("#assistant-provider-error");
       const assistantHint = document.querySelector("#assistant-hint");
-      const directoryWarning = document.querySelector("#directory-warning");
       const botSubmitButton = document.querySelector("#bot-submit");
       const assistantSubmitButton = document.querySelector("#assistant-submit");
 
@@ -555,13 +520,6 @@ export function renderProfileAdminPage(): string {
         } else {
           assistantHint.textContent = "Codex CLI uses the default local installation.";
         }
-      }
-
-      function updateDirectoryWarning() {
-        directoryWarning.textContent =
-          directoryForm.mode.value === "open"
-            ? "Open mode allows so-bridge to run without a selected project. Use it only when you want unrestricted behavior."
-            : "Restricted mode requires both allowlist paths and a selected project before bridge activation.";
       }
 
       function getSelectedBot() {
@@ -671,13 +629,6 @@ export function renderProfileAdminPage(): string {
             assistant.id +
             '">Delete</button></div></div>',
         );
-
-        directoryForm.mode.value = state.resources.directoryPolicy.mode;
-        directoryForm.allowedPaths.value = state.resources.directoryPolicy.allowedPaths.join("\\n");
-        directoryForm.selectedPath.innerHTML = ['<option value="">No selected project</option>']
-          .concat(state.resources.directoryPolicy.allowedPaths.map((path) => '<option value="' + path + '">' + path + "</option>"))
-          .join("");
-        directoryForm.selectedPath.value = state.resources.directoryPolicy.selectedPath ?? "";
 
         botSubmitButton.textContent = state.editingBotId ? "Update Bot Connection" : "Add Bot Connection";
         assistantSubmitButton.textContent = state.editingAssistantId ? "Update AI Assistant" : "Add AI Assistant";
@@ -829,27 +780,6 @@ export function renderProfileAdminPage(): string {
         }
       });
 
-      directoryForm.addEventListener("submit", async (event) => {
-        event.preventDefault();
-        setMessage("Applying Project Whitelist...");
-        const allowedPaths = directoryForm.allowedPaths.value
-          .split("\\n")
-          .map((value) => value.trim())
-          .filter(Boolean);
-
-        try {
-          await submitJson("/api/admin/directory-policy", "PUT", {
-            mode: directoryForm.mode.value,
-            allowedPaths,
-            selectedPath: directoryForm.selectedPath.value || null,
-          });
-          await loadState();
-          setMessage("Project Whitelist applied.");
-        } catch (error) {
-          setMessage(error.message, true);
-        }
-      });
-
       botList.addEventListener("click", async (event) => {
         const deleteButton = event.target.closest("[data-delete-bot]");
         if (deleteButton) {
@@ -930,11 +860,8 @@ export function renderProfileAdminPage(): string {
         clearAssistantErrors();
       });
 
-      directoryForm.mode.addEventListener("change", updateDirectoryWarning);
-
       updateBotCredentialLabels();
       updateAssistantFields();
-      updateDirectoryWarning();
       void loadState().catch((error) => setMessage(error.message, true));
     </script>
   </body>

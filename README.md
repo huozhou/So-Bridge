@@ -1,11 +1,13 @@
 # so-bridge
 
-Turn your IM into an AI-powered coding assistant — no cloud deployment needed.
+English | [简体中文](./README.zh-CN.md)
 
-`so-bridge` is a local bridge that connects your IM bot to an AI coding assistant. Send a message in Slack or Lark, and your AI assistant gets to work. Results stream back in real-time.
+Connect your IM directly to your AI coding assistant CLI.
+
+`so-bridge` turns Slack or Lark into a live window into your AI coding workflow. You can start work from chat, receive progress updates without staring at a terminal, and keep an eye on long-running work from your phone while your workstation stays at home or in the office.
 
 ```
-You (in Slack/Lark)          so-bridge           AI Assistant
+You (in Slack/Lark)          so-bridge           AI Code Assistant
                           ┌────────────┐
  "Review PR #42"    ───▶  │  Local     │  ───▶  Codex CLI
  "Run the tests"          │  Bridge    │        Claude Code
@@ -19,11 +21,12 @@ You (in Slack/Lark)          so-bridge           AI Assistant
 
 ## Why so-bridge?
 
-- **Runs locally** — no cloud server, no public URL, no ngrok. Your bot connects to Slack/Lark via WebSocket.
-- **Stream responses** — AI output appears in real-time, just like ChatGPT. No waiting for the full answer.
-- **Multiple AI assistants** — Codex CLI, Claude Code, Cursor, and more. Switch between them in seconds.
-- **Browser admin console** — configure everything from a clean web UI. No config files to edit manually.
-- **Project safety** — whitelist which directories the AI can access. Keep your production code safe.
+- **Stay updated away from your desk** — progress and results flow back into IM, so you do not need to keep checking a terminal window.
+- **Turn chat into a remote coding console** — start work, follow execution, and continue driving your AI Code Assistant from Slack or Lark.
+- **Keep your workstation where it belongs** — leave your coding machine at home or in the office and keep interacting from your phone through text or voice-friendly chat.
+- **Runs locally** — no cloud server, no public URL, no ngrok. Your bot connects to Slack or Lark over WebSocket.
+- **Works with real AI coding CLIs** — Codex CLI, Claude Code, Cursor, and more.
+- **Browser admin console** — configure the bridge from a clean web UI instead of hand-editing config files.
 
 ## Quick Start
 
@@ -35,12 +38,12 @@ npm start
 
 Open [http://127.0.0.1:3000/admin](http://127.0.0.1:3000/admin) in your browser.
 
-That's it. The admin console walks you through the rest:
+That is it. The admin console walks you through the rest:
 
 1. **Add a Bot Connection** — paste your Slack or Lark tokens
 2. **Add an AI Assistant** — pick Codex CLI, Claude Code, or Cursor
-3. **Create a Bridge Profile** — link the bot to the assistant
-4. **Activate** — flip the switch and start chatting
+3. **Select both sides** — choose the bot and assistant you want the bridge to use
+4. **Start working from chat** — send a task from IM and follow progress there
 
 ## Connect Slack
 
@@ -61,7 +64,7 @@ That's it. The admin console walks you through the rest:
 5. Copy your **App ID** and **App Secret**
 6. Paste them in the admin console
 
-## AI Assistants
+## AI Code Assistants
 
 | Assistant | CLI Tool | How to install |
 | --- | --- | --- |
@@ -69,13 +72,13 @@ That's it. The admin console walks you through the rest:
 | Claude Code | `claude` | [docs.anthropic.com](https://docs.anthropic.com/en/docs/claude-code) |
 | Cursor | `cursor` | [cursor.com](https://cursor.com/) |
 
-Install any of these CLI tools, and `so-bridge` will detect them automatically.
+Install any of these CLI tools, and `so-bridge` can bridge your chat directly into them.
 
 ## CLI Commands
 
 ```bash
 so-bridge start     # Start the bridge service
-so-bridge status    # Show active profile and config paths
+so-bridge status    # Show current bridge state and config paths
 so-bridge open      # Open admin console in browser
 so-bridge purge     # Remove all local config and state
 ```
@@ -87,6 +90,17 @@ npm start           # Start (after npm run build)
 npm run dev         # Start with auto-reload
 npm test            # Run tests
 ```
+
+## Why It Feels Different
+
+With `so-bridge`, your IM becomes part status dashboard and part remote control:
+
+- Kick off work from chat
+- Get progress back in chat while you do something else
+- Check in from your phone instead of returning to your desk
+- Continue iterating with short follow-ups when the assistant needs direction
+
+That makes it a good fit for side projects, experiments, and any workflow where your coding machine is running somewhere else.
 
 ## Streaming
 
@@ -117,14 +131,7 @@ The admin console at `http://127.0.0.1:3000/admin` lets you manage:
 
 - **Bot Connections** — your Slack/Lark bot tokens
 - **AI Assistants** — which coding tools to use
-- **Bridge Profiles** — combinations of bot + assistant
-- **Project Whitelist** — directories the AI is allowed to access
-
-## Health Check
-
-```bash
-curl http://127.0.0.1:3000/health
-```
+- **Current Bridge** — which bot is connected to which AI assistant
 
 ## License
 

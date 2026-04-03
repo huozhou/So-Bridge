@@ -43,10 +43,10 @@ describe("renderProfileAdminPage", () => {
     const html = renderProfileAdminPage();
 
     expect(html).not.toMatch(/[\u4e00-\u9fff]/);
-    expect(html).toContain("Project Whitelist");
     expect(html).toContain("Not configured");
     expect(html).not.toContain("Project Access");
     expect(html).not.toContain("Active Bridge:");
+    expect(html).not.toContain("Project Whitelist");
   });
 
   it("contains fetch-driven wiring for resources and current bridge state", () => {
@@ -68,5 +68,7 @@ describe("renderProfileAdminPage", () => {
     expect(html).toContain("App Token is required.");
     expect(html).toContain("App ID is required.");
     expect(html).toContain("App Secret is required.");
+    expect(html).not.toContain("/api/admin/directory-policy");
+    expect(html).not.toContain("Apply Project Whitelist");
   });
 });
