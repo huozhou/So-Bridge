@@ -34,12 +34,20 @@ export function renderProfileAdminPage(): string {
       h1, h2, p { margin: 0; }
       section + section { margin-top: 24px; }
       .shell {
+        position: relative;
+        overflow: visible;
         border: 1px solid var(--border);
         border-radius: 28px;
         background: rgba(255, 255, 255, 0.92);
         box-shadow: 0 18px 48px rgba(17, 17, 17, 0.06);
       }
       .hero { padding: 28px; }
+      .hero-header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 16px;
+      }
       .eyebrow {
         display: inline-flex;
         align-items: center;
@@ -144,6 +152,10 @@ export function renderProfileAdminPage(): string {
         grid-template-columns: repeat(2, minmax(0, 1fr));
       }
       .panel { padding: 24px; }
+      .panel {
+        position: relative;
+        overflow: visible;
+      }
       .panel h2 { font-size: 22px; }
       .panel p {
         margin-top: 10px;
@@ -222,6 +234,19 @@ export function renderProfileAdminPage(): string {
         color: #ffffff;
         cursor: pointer;
       }
+      a.button-link {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        padding: 12px 18px;
+        background: #ffffff;
+        color: var(--ink);
+        cursor: pointer;
+        text-decoration: none;
+        white-space: nowrap;
+      }
       button.secondary {
         background: #ffffff;
         color: var(--ink);
@@ -234,8 +259,13 @@ export function renderProfileAdminPage(): string {
         border-color: var(--border);
       }
       .control {
+        position: relative;
+        z-index: 0;
         display: grid;
         gap: 8px;
+      }
+      .control:focus-within {
+        z-index: 8;
       }
       .control label {
         font-size: 13px;
@@ -259,6 +289,69 @@ export function renderProfileAdminPage(): string {
       .textarea:focus {
         border-color: #111111;
         box-shadow: 0 0 0 3px rgba(17, 17, 17, 0.08);
+      }
+      .native-select {
+        display: none;
+      }
+      .custom-select {
+        position: relative;
+      }
+      .custom-select-trigger {
+        display: inline-flex;
+        align-items: center;
+        width: 100%;
+        justify-content: space-between;
+        border-radius: 16px;
+        border: 1px solid var(--border);
+        background: #ffffff;
+        color: var(--ink);
+        padding: 14px 16px;
+        line-height: 1.2;
+      }
+      .custom-select-trigger:focus {
+        border-color: #111111;
+        box-shadow: 0 0 0 3px rgba(17, 17, 17, 0.08);
+      }
+      .custom-select-arrow {
+        width: 10px;
+        height: 10px;
+        border-right: 1.5px solid #6b7280;
+        border-bottom: 1.5px solid #6b7280;
+        transform: rotate(45deg) translateY(-2px);
+        flex-shrink: 0;
+      }
+      .custom-select.open .custom-select-arrow {
+        transform: rotate(-135deg) translateX(-2px);
+      }
+      .custom-select-menu {
+        position: absolute;
+        top: calc(100% + 8px);
+        left: 0;
+        right: 0;
+        display: none;
+        padding: 8px;
+        border: 1px solid var(--border);
+        border-radius: 18px;
+        background: #ffffff;
+        box-shadow: 0 18px 36px rgba(17, 17, 17, 0.12);
+        z-index: 24;
+      }
+      .custom-select.open .custom-select-menu {
+        display: grid;
+        gap: 6px;
+      }
+      .custom-select-option {
+        width: 100%;
+        border: 0;
+        border-radius: 12px;
+        padding: 12px 14px;
+        background: #ffffff;
+        color: var(--ink);
+        text-align: left;
+      }
+      .custom-select-option:hover,
+      .custom-select-option.active {
+        background: var(--surface);
       }
       .textarea {
         min-height: 132px;
@@ -298,9 +391,14 @@ export function renderProfileAdminPage(): string {
   <body>
     <main>
       <section class="shell hero">
-        <span class="eyebrow">so-bridge</span>
-        <h1>Current Bridge</h1>
-        <p>Select one Bot Connection and one AI Assistant. The bridge updates when a new card is selected.</p>
+        <div class="hero-header">
+          <div>
+            <span class="eyebrow">so-bridge</span>
+            <h1>Current Bridge</h1>
+            <p>Select one Bot Connection and one AI Assistant. The bridge updates when a new card is selected.</p>
+          </div>
+          <a class="button-link" href="/admin/settings">Settings</a>
+        </div>
 
         <div class="bridge-shell">
           <article class="bridge-card">
@@ -439,6 +537,79 @@ export function renderProfileAdminPage(): string {
       const assistantHint = document.querySelector("#assistant-hint");
       const botSubmitButton = document.querySelector("#bot-submit");
       const assistantSubmitButton = document.querySelector("#assistant-submit");
+
+      function closeCustomSelects() {
+        document.querySelectorAll(".custom-select.open").forEach((item) => item.classList.remove("open"));
+      }
+
+      function syncCustomSelect(select) {
+        select.dispatchEvent(new Event("so-bridge:sync-select"));
+      }
+
+      function initCustomSelect(select) {
+        if (!select || select.dataset.customSelectReady === "true") {
+          return;
+        }
+
+        select.dataset.customSelectReady = "true";
+        select.classList.add("native-select");
+
+        const shell = document.createElement("div");
+        shell.className = "custom-select";
+
+        const trigger = document.createElement("button");
+        trigger.type = "button";
+        trigger.className = "custom-select-trigger";
+
+        const label = document.createElement("span");
+        const arrow = document.createElement("span");
+        arrow.className = "custom-select-arrow";
+        trigger.append(label, arrow);
+
+        const menu = document.createElement("div");
+        menu.className = "custom-select-menu";
+
+        function renderMenu() {
+          const current = select.value;
+          const options = Array.from(select.options);
+          const selectedOption = options.find((option) => option.value === current) ?? options[0] ?? null;
+          label.textContent = selectedOption?.textContent ?? "";
+          menu.innerHTML = options
+            .map(
+              (option) =>
+                '<button type="button" class="custom-select-option' +
+                (option.value === current ? " active" : "") +
+                '" data-value="' +
+                option.value.replaceAll('"', "&quot;") +
+                '">' +
+                option.textContent +
+                "</button>",
+            )
+            .join("");
+        }
+
+        trigger.addEventListener("click", () => {
+          const willOpen = !shell.classList.contains("open");
+          closeCustomSelects();
+          shell.classList.toggle("open", willOpen);
+        });
+
+        menu.addEventListener("click", (event) => {
+          const option = event.target.closest("[data-value]");
+          if (!option) {
+            return;
+          }
+          select.value = option.getAttribute("data-value") ?? "";
+          renderMenu();
+          shell.classList.remove("open");
+          select.dispatchEvent(new Event("change", { bubbles: true }));
+        });
+
+        select.addEventListener("so-bridge:sync-select", renderMenu);
+        shell.append(trigger, menu);
+        select.insertAdjacentElement("afterend", shell);
+        renderMenu();
+      }
 
       function setMessage(message, isError = false) {
         pageMessage.textContent = message ?? "";
@@ -639,6 +810,7 @@ export function renderProfileAdminPage(): string {
         if (!bot) return;
         state.editingBotId = bot.id;
         botPlatformField.value = bot.platform;
+        syncCustomSelect(botPlatformField);
         updateBotCredentialLabels();
         botCredentialPrimaryField.value = String(bot.platform === "slack" ? (bot.config.botToken ?? "") : (bot.config.appId ?? ""));
         botCredentialSecondaryField.value = String(bot.platform === "slack" ? (bot.config.appToken ?? "") : (bot.config.appSecret ?? ""));
@@ -650,6 +822,7 @@ export function renderProfileAdminPage(): string {
         if (!assistant) return;
         state.editingAssistantId = assistant.id;
         assistantProviderField.value = assistant.provider;
+        syncCustomSelect(assistantProviderField);
         updateAssistantFields();
         assistantEndpointField.value =
           assistant.provider === "vscode-agent"
@@ -732,6 +905,7 @@ export function renderProfileAdminPage(): string {
           state.editingBotId = null;
           botForm.reset();
           botPlatformField.value = "slack";
+          syncCustomSelect(botPlatformField);
           updateBotCredentialLabels();
           clearBotErrors();
           await loadState();
@@ -769,6 +943,7 @@ export function renderProfileAdminPage(): string {
           state.editingAssistantId = null;
           assistantForm.reset();
           assistantProviderField.value = "codex-cli";
+          syncCustomSelect(assistantProviderField);
           assistantEndpointField.value = "";
           updateAssistantFields();
           clearAssistantErrors();
@@ -860,9 +1035,587 @@ export function renderProfileAdminPage(): string {
         clearAssistantErrors();
       });
 
+      initCustomSelect(botPlatformField);
+      initCustomSelect(assistantProviderField);
       updateBotCredentialLabels();
       updateAssistantFields();
+      document.addEventListener("click", (event) => {
+        if (!(event.target instanceof HTMLElement) || !event.target.closest(".custom-select")) {
+          closeCustomSelects();
+        }
+      });
       void loadState().catch((error) => setMessage(error.message, true));
+    </script>
+  </body>
+</html>`;
+}
+
+export function renderProjectAccessSettingsPage(): string {
+  return `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>so-bridge Settings</title>
+    <style>
+      :root {
+        --bg: #ffffff;
+        --surface: #f5f5f5;
+        --panel: #ffffff;
+        --ink: #111111;
+        --muted: #6b7280;
+        --border: #d4d4d8;
+        --danger: #b91c1c;
+        --active: #16a34a;
+        --active-soft: #dcfce7;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: "SF Pro Display", "Segoe UI", sans-serif;
+        color: var(--ink);
+        background:
+          radial-gradient(circle at top, rgba(17, 17, 17, 0.05), transparent 36%),
+          linear-gradient(180deg, #ffffff 0%, #f7f7f7 100%);
+      }
+      main {
+        max-width: 860px;
+        margin: 0 auto;
+        padding: 40px 20px 64px;
+      }
+      .shell {
+        position: relative;
+        overflow: visible;
+        border: 1px solid var(--border);
+        border-radius: 28px;
+        background: rgba(255, 255, 255, 0.92);
+        box-shadow: 0 18px 48px rgba(17, 17, 17, 0.06);
+      }
+      .panel {
+        padding: 28px;
+      }
+      .eyebrow {
+        display: inline-flex;
+        align-items: center;
+        padding: 6px 10px;
+        border-radius: 999px;
+        background: #111111;
+        color: #ffffff;
+        font-size: 12px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+      h1, h2, p { margin: 0; }
+      h1 {
+        margin-top: 16px;
+        font-size: 34px;
+        line-height: 1;
+      }
+      p {
+        margin-top: 12px;
+        color: var(--muted);
+        line-height: 1.6;
+      }
+      .topbar {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 16px;
+      }
+      .stack {
+        display: grid;
+        gap: 16px;
+        margin-top: 24px;
+      }
+      .row {
+        display: grid;
+        gap: 12px;
+        grid-template-columns: minmax(0, 1fr) auto;
+      }
+      .switch-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 16px 18px;
+        border: 1px solid var(--border);
+        border-radius: 20px;
+        background: #ffffff;
+      }
+      .switch-copy {
+        display: grid;
+        gap: 6px;
+      }
+      .switch-copy strong {
+        font-size: 16px;
+      }
+      .switch-copy span {
+        color: var(--muted);
+        font-size: 14px;
+        line-height: 1.5;
+      }
+      .switch {
+        position: relative;
+        width: 56px;
+        height: 32px;
+        flex-shrink: 0;
+      }
+      .switch input {
+        position: absolute;
+        inset: 0;
+        opacity: 0;
+        cursor: pointer;
+      }
+      .switch-track {
+        position: absolute;
+        inset: 0;
+        border-radius: 999px;
+        background: #d4d4d8;
+        transition: background 120ms ease;
+      }
+      .switch-track::after {
+        content: "";
+        position: absolute;
+        top: 4px;
+        left: 4px;
+        width: 24px;
+        height: 24px;
+        border-radius: 999px;
+        background: #ffffff;
+        box-shadow: 0 2px 6px rgba(17, 17, 17, 0.18);
+        transition: transform 120ms ease;
+      }
+      .switch input:checked + .switch-track {
+        background: var(--active);
+      }
+      .switch input:checked + .switch-track::after {
+        transform: translateX(24px);
+      }
+      .control {
+        position: relative;
+        z-index: 0;
+        display: grid;
+        gap: 8px;
+      }
+      .control:focus-within {
+        z-index: 8;
+      }
+      .control label {
+        font-size: 13px;
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+      }
+      .field,
+      .select,
+      button,
+      a.button-link {
+        font: inherit;
+      }
+      .field,
+      .select {
+        width: 100%;
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        background: #ffffff;
+        color: var(--ink);
+        padding: 14px 16px;
+        outline: none;
+      }
+      .field:focus,
+      .select:focus {
+        border-color: #111111;
+        box-shadow: 0 0 0 3px rgba(17, 17, 17, 0.08);
+      }
+      .native-select {
+        display: none;
+      }
+      .custom-select {
+        position: relative;
+      }
+      .custom-select-trigger {
+        display: inline-flex;
+        align-items: center;
+        width: 100%;
+        justify-content: space-between;
+        border-radius: 16px;
+        border: 1px solid var(--border);
+        background: #ffffff;
+        color: var(--ink);
+        padding: 14px 16px;
+        line-height: 1.2;
+      }
+      .custom-select-trigger:focus {
+        border-color: #111111;
+        box-shadow: 0 0 0 3px rgba(17, 17, 17, 0.08);
+      }
+      .custom-select-arrow {
+        width: 10px;
+        height: 10px;
+        border-right: 1.5px solid #6b7280;
+        border-bottom: 1.5px solid #6b7280;
+        transform: rotate(45deg) translateY(-2px);
+        flex-shrink: 0;
+      }
+      .custom-select.open .custom-select-arrow {
+        transform: rotate(-135deg) translateX(-2px);
+      }
+      .custom-select-menu {
+        position: absolute;
+        top: calc(100% + 8px);
+        left: 0;
+        right: 0;
+        display: none;
+        padding: 8px;
+        border: 1px solid var(--border);
+        border-radius: 18px;
+        background: #ffffff;
+        box-shadow: 0 18px 36px rgba(17, 17, 17, 0.12);
+        z-index: 24;
+      }
+      .custom-select.open .custom-select-menu {
+        display: grid;
+        gap: 6px;
+      }
+      .custom-select-option {
+        width: 100%;
+        border: 0;
+        border-radius: 12px;
+        padding: 12px 14px;
+        background: #ffffff;
+        color: var(--ink);
+        text-align: left;
+      }
+      .custom-select-option:hover,
+      .custom-select-option.active {
+        background: var(--surface);
+      }
+      button,
+      a.button-link {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid #111111;
+        border-radius: 999px;
+        padding: 12px 18px;
+        background: #111111;
+        color: #ffffff;
+        cursor: pointer;
+        text-decoration: none;
+      }
+      button.secondary,
+      a.button-link.secondary {
+        border-color: var(--border);
+        background: #ffffff;
+        color: #111111;
+      }
+      .path-list {
+        display: grid;
+        gap: 10px;
+      }
+      .access-panel {
+        display: grid;
+        gap: 16px;
+        padding: 18px;
+        border: 1px solid var(--border);
+        border-radius: 22px;
+        background: #fafafa;
+        transition: border-color 120ms ease, background 120ms ease, box-shadow 120ms ease;
+      }
+      .access-panel.active {
+        border-color: var(--active);
+        background: #f7fff9;
+        box-shadow: inset 0 0 0 1px rgba(22, 163, 74, 0.08);
+      }
+      .path-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 14px 16px;
+        border: 1px solid var(--border);
+        border-radius: 18px;
+        background: var(--surface);
+      }
+      .path-item strong {
+        display: block;
+        word-break: break-all;
+      }
+      .path-item.selected {
+        border-color: var(--border-strong, #a1a1aa);
+        background: var(--surface);
+        box-shadow: inset 0 0 0 1px var(--border);
+      }
+      .actions {
+        display: flex;
+        gap: 8px;
+        flex-shrink: 0;
+      }
+      .path-copy {
+        display: grid;
+        gap: 6px;
+      }
+      .path-copy span {
+        color: var(--muted);
+        font-size: 13px;
+      }
+      .path-current {
+        color: var(--muted) !important;
+        font-weight: 600;
+      }
+      .icon-button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 36px;
+        height: 36px;
+        padding: 0;
+        border-radius: 999px;
+      }
+      .icon-button.selected {
+        border-color: #111111;
+        background: #111111;
+        color: #ffffff;
+      }
+      .hint {
+        color: var(--muted);
+        font-size: 14px;
+      }
+      .message {
+        min-height: 20px;
+        font-size: 14px;
+        color: var(--muted);
+      }
+      .message.error {
+        color: var(--danger);
+      }
+      @media (max-width: 700px) {
+        .topbar,
+        .path-item {
+          flex-direction: column;
+          align-items: stretch;
+        }
+        .row {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <section class="shell panel">
+        <div class="topbar">
+          <div>
+            <span class="eyebrow">so-bridge</span>
+            <h1>Settings</h1>
+            <p>Project Access limits which project paths the bridge may target.</p>
+          </div>
+          <a class="button-link secondary" href="/admin">Back</a>
+        </div>
+
+        <div class="stack">
+          <div class="switch-row">
+            <div class="switch-copy">
+              <strong>Restrict Project Access</strong>
+              <span id="settings-hint">The bridge may access any project path.</span>
+            </div>
+            <label class="switch" aria-label="Restrict Project Access">
+              <input id="restrict-toggle" type="checkbox" />
+              <span class="switch-track"></span>
+            </label>
+          </div>
+
+          <div class="access-panel" id="access-panel">
+            <div class="control">
+              <label for="path-input">Allowed Path</label>
+              <div class="row">
+                <input id="path-input" class="field" placeholder="/path/to/project" />
+                <button id="add-path" type="button">Add Path</button>
+              </div>
+            </div>
+            <div class="path-list" id="path-list"></div>
+          </div>
+          <div class="message" id="settings-message"></div>
+        </div>
+      </section>
+    </main>
+
+    <script type="module">
+      const restrictToggle = document.querySelector("#restrict-toggle");
+      const pathInput = document.querySelector("#path-input");
+      const addPathButton = document.querySelector("#add-path");
+      const pathList = document.querySelector("#path-list");
+      const accessPanel = document.querySelector("#access-panel");
+      const message = document.querySelector("#settings-message");
+      const hint = document.querySelector("#settings-hint");
+
+      const state = {
+        directoryPolicy: {
+          mode: "open",
+          allowedPaths: [],
+          selectedPath: null,
+        },
+      };
+
+      function setMessage(text, isError = false) {
+        message.textContent = text ?? "";
+        message.classList.toggle("error", Boolean(isError));
+      }
+
+      function render() {
+        restrictToggle.checked = state.directoryPolicy.mode === "restricted";
+        hint.textContent =
+          state.directoryPolicy.mode === "restricted"
+            ? "The bridge should only target the paths listed below."
+            : "The bridge may access any project path.";
+        accessPanel.classList.toggle("active", state.directoryPolicy.mode === "restricted");
+
+        pathList.innerHTML = state.directoryPolicy.allowedPaths.length
+          ? state.directoryPolicy.allowedPaths
+              .map(
+                (path) =>
+                  '<div class="path-item' +
+                  (state.directoryPolicy.selectedPath === path ? " selected" : "") +
+                  '"><div class="path-copy"><strong>' +
+                  escapeHtml(path) +
+                  '</strong>' +
+                  (state.directoryPolicy.selectedPath === path
+                    ? '<span class="path-current">Current target project</span>'
+                    : "") +
+                  '</div><div class="actions"><button class="icon-button secondary' +
+                  (state.directoryPolicy.selectedPath === path ? " selected" : "") +
+                  '" type="button" aria-label="Select path" data-select-path="' +
+                  escapeHtml(path) +
+                  '">✓</button><button class="secondary" type="button" data-delete-path="' +
+                  escapeHtml(path) +
+                  '">Delete</button></div></div>',
+              )
+              .join("")
+          : '<div class="hint">No allowed paths saved.</div>';
+      }
+
+      function escapeHtml(value) {
+        return value
+          .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;")
+          .replaceAll('"', "&quot;");
+      }
+
+      async function loadResources() {
+        const response = await fetch("/api/admin/resources");
+        if (!response.ok) {
+          throw new Error("Failed to load admin resources");
+        }
+        const resources = await response.json();
+        state.directoryPolicy = resources.directoryPolicy;
+        render();
+      }
+
+      async function persistPolicy() {
+        const response = await fetch("/api/admin/directory-policy", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(state.directoryPolicy),
+        });
+
+        if (!response.ok) {
+          const payload = await response.json().catch(() => ({ error: "Failed to save project access" }));
+          throw new Error(payload.error ?? "Failed to save project access");
+        }
+
+        state.directoryPolicy = await response.json();
+        render();
+      }
+
+      async function addPath() {
+        const value = pathInput.value.trim();
+        if (!value) {
+          setMessage("Path is required.", true);
+          return;
+        }
+        if (!state.directoryPolicy.allowedPaths.includes(value)) {
+          state.directoryPolicy.allowedPaths.push(value);
+        }
+        if (!state.directoryPolicy.selectedPath) {
+          state.directoryPolicy.selectedPath = value;
+        }
+        try {
+          await persistPolicy();
+          pathInput.value = "";
+          setMessage("Project Access updated.");
+        } catch (error) {
+          setMessage(error instanceof Error ? error.message : String(error), true);
+        }
+      }
+
+      async function deletePath(path) {
+        state.directoryPolicy.allowedPaths = state.directoryPolicy.allowedPaths.filter((item) => item !== path);
+        if (state.directoryPolicy.selectedPath === path) {
+          state.directoryPolicy.selectedPath = state.directoryPolicy.allowedPaths[0] ?? null;
+        }
+        try {
+          await persistPolicy();
+          setMessage("Project Access updated.");
+        } catch (error) {
+          setMessage(error instanceof Error ? error.message : String(error), true);
+        }
+      }
+
+      async function toggleRestriction() {
+        state.directoryPolicy.mode = restrictToggle.checked ? "restricted" : "open";
+        if (state.directoryPolicy.mode === "restricted" && state.directoryPolicy.allowedPaths.length === 0) {
+          restrictToggle.checked = false;
+          state.directoryPolicy.mode = "open";
+          setMessage("Add at least one allowed path before enabling restriction.", true);
+          render();
+          return;
+        }
+        try {
+          await persistPolicy();
+          setMessage("Project Access updated.");
+        } catch (error) {
+          setMessage(error instanceof Error ? error.message : String(error), true);
+        }
+      }
+
+      async function selectPath(path) {
+        state.directoryPolicy.selectedPath = path;
+        try {
+          await persistPolicy();
+          setMessage("Project Access updated.");
+        } catch (error) {
+          setMessage(error instanceof Error ? error.message : String(error), true);
+        }
+      }
+
+      addPathButton.addEventListener("click", () => {
+        void addPath();
+      });
+      restrictToggle.addEventListener("change", () => {
+        void toggleRestriction();
+      });
+      pathList.addEventListener("click", (event) => {
+        const target = event.target;
+        if (!(target instanceof HTMLElement)) {
+          return;
+        }
+        const selectButton = target.closest("[data-select-path]");
+        const deleteButton = target.closest("[data-delete-path]");
+        const selectedPathValue = selectButton?.getAttribute("data-select-path");
+        const deletePathValue = deleteButton?.getAttribute("data-delete-path");
+        if (selectedPathValue) {
+          void selectPath(selectedPathValue);
+          return;
+        }
+        if (deletePathValue) {
+          void deletePath(deletePathValue);
+        }
+      });
+
+      void loadResources().catch((error) => {
+        setMessage(error instanceof Error ? error.message : String(error), true);
+      });
     </script>
   </body>
 </html>`;

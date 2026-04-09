@@ -6,6 +6,7 @@ import type {
   Task,
   TaskContext,
 } from "../types.js";
+import type { PathValidationResult } from "../whitelist/path-validator.js";
 
 const MAX_USER_MESSAGE_LENGTH = 4000;
 const MAX_PROMPT_LENGTH = 50_000;
@@ -56,13 +57,19 @@ function requiresConfirmationForAction(action: IntentAction): boolean {
 export class TaskDispatcher {
   private readonly backends: Map<string, ExecutionBackend>;
   private readonly defaultBackend: string;
+  private readonly taskInstructions: string[];
+  private readonly validateCommand?: (command: string) => PathValidationResult;
 
   constructor(config: {
     backends: Map<string, ExecutionBackend>;
     defaultBackend: string;
+    taskInstructions?: string[];
+    validateCommand?: (command: string) => PathValidationResult;
   }) {
     this.backends = config.backends;
     this.defaultBackend = config.defaultBackend;
+    this.taskInstructions = config.taskInstructions ?? [];
+    this.validateCommand = config.validateCommand;
   }
 
   getDefaultBackend(): string {
@@ -102,6 +109,7 @@ export class TaskDispatcher {
       context,
       backend: backend.name,
       prompt: buildPrompt(context),
+      instructions: this.taskInstructions,
       requiresConfirmation: requiresConfirmationForAction(context.intent.action),
     };
   }
@@ -114,6 +122,12 @@ export class TaskDispatcher {
   ): Promise<Task> {
     const backend = await this.resolveBackend(backendType);
     const sanitizedPrompt = sanitizeUserInput(prompt);
+    if (this.validateCommand) {
+      const result = this.validateCommand(sanitizedPrompt);
+      if (!result.allowed) {
+        throw new Error(`Whitelist validation failed: ${result.reason ?? "command rejected"}`);
+      }
+    }
     const execContext: TaskContext = {
       ...context,
       intent: { ...context.intent, action: "run-command", rawMessage: sanitizedPrompt },
@@ -123,6 +137,7 @@ export class TaskDispatcher {
       context: execContext,
       backend: backend.name,
       prompt: sanitizedPrompt,
+      instructions: this.taskInstructions,
       requiresConfirmation,
     };
   }

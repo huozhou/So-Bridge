@@ -94,6 +94,18 @@ describe("createProfileAdminRouter", () => {
     expect(response.text).toContain("/api/admin/resources");
   });
 
+  it("returns the Project Access settings page for /admin/settings", async () => {
+    const response = await invokeRoute("GET", "/admin/settings");
+
+    expect(response.status).toBe(200);
+    expect(response.headers["content-type"]).toContain("text/html");
+    expect(response.text).toContain("Project Access");
+    expect(response.text).toContain("Allowed Path");
+    expect(response.text).toContain("Restrict Project Access");
+    expect(response.text).not.toContain("Save Project Access");
+    expect(response.text).toContain("/api/admin/directory-policy");
+  });
+
   it("returns the current bridge payload", async () => {
     const response = await invokeRoute("GET", "/api/admin/current-bridge", {
       getCurrentBridge: vi.fn().mockResolvedValue({

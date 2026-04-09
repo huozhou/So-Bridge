@@ -101,6 +101,30 @@ describe("TaskDispatcher with defaultBackend", () => {
     expect(task.backend).toBe("claude-code");
   });
 
+  it("dispatchAdhoc rejects commands with disallowed whitelist paths", async () => {
+    const codex = stubBackend("codex-cli");
+    const backends = new Map([["codex-cli", codex]]);
+
+    const dispatcher = new TaskDispatcher({
+      backends,
+      defaultBackend: "codex-cli",
+      validateCommand: () => ({
+        allowed: false,
+        rejectedPaths: ["/private/repo"],
+        reason: "command includes disallowed paths",
+      }),
+    });
+
+    await expect(
+      dispatcher.dispatchAdhoc(
+        makeContext(),
+        "cat /private/repo/secrets.txt",
+        "codex-cli",
+        false,
+      ),
+    ).rejects.toThrow("Whitelist validation failed: command includes disallowed paths");
+  });
+
   it("execute runs the task on the assigned backend", async () => {
     const codex = stubBackend("codex-cli");
     const backends = new Map([["codex-cli", codex]]);

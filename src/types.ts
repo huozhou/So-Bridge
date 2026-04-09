@@ -76,6 +76,7 @@ export interface Task {
   context: TaskContext;
   backend: BackendType;
   prompt: string;
+  instructions?: string[];
   requiresConfirmation: boolean;
 }
 

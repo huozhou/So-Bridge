@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { renderProfileAdminPage } from "../../src/admin/profile-ui.js";
+import { renderProfileAdminPage, renderProjectAccessSettingsPage } from "../../src/admin/profile-ui.js";
 
 describe("renderProfileAdminPage", () => {
   it("renders a so-bridge-centered bridge layout", () => {
@@ -70,5 +70,36 @@ describe("renderProfileAdminPage", () => {
     expect(html).toContain("App Secret is required.");
     expect(html).not.toContain("/api/admin/directory-policy");
     expect(html).not.toContain("Apply Project Whitelist");
+  });
+
+  it("links to settings from the main admin page", () => {
+    const html = renderProfileAdminPage();
+
+    expect(html).toContain('href="/admin/settings"');
+    expect(html).toContain("Settings");
+  });
+});
+
+describe("renderProjectAccessSettingsPage", () => {
+  it("renders the Project Access settings page", () => {
+    const html = renderProjectAccessSettingsPage();
+
+    expect(html).toContain("Project Access");
+    expect(html).toContain("Restrict Project Access");
+    expect(html).toContain("Allowed Path");
+    expect(html).toContain("Add Path");
+    expect(html).not.toContain("Save Project Access");
+    expect(html).toContain('href="/admin"');
+  });
+
+  it("wires the settings page to admin resources and directory policy endpoints", () => {
+    const html = renderProjectAccessSettingsPage();
+
+    expect(html).toContain("/api/admin/resources");
+    expect(html).toContain("/api/admin/directory-policy");
+    expect(html).toContain("The bridge may access any project path.");
+    expect(html).toContain("The bridge should only target the paths listed below.");
+    expect(html).toContain("Add at least one allowed path before enabling restriction.");
+    expect(html).toContain("Project Access updated.");
   });
 });

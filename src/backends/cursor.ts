@@ -5,6 +5,7 @@ import { createInterface } from "node:readline";
 import { promisify } from "node:util";
 
 import type { ExecutionBackend, ExecutionResult, StreamChunk, Task } from "../types.js";
+import { composeTaskPrompt } from "./prompt-utils.js";
 import { collectStream } from "./stream-utils.js";
 
 const execAsync = promisify(exec);
@@ -59,7 +60,7 @@ export class CursorBackend implements ExecutionBackend {
       "-p",
       "--output-format", "stream-json",
       "--stream-partial-output",
-      task.prompt,
+      composeTaskPrompt(task),
     ];
 
     const child = spawn(this.resolvedBinary, args, {

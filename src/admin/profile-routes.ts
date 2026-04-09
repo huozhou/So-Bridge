@@ -1,5 +1,5 @@
 import { Router, type Request, type Response } from "express";
-import { renderProfileAdminPage } from "./profile-ui.js";
+import { renderProfileAdminPage, renderProjectAccessSettingsPage } from "./profile-ui.js";
 
 function toErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
@@ -32,6 +32,10 @@ export function createProfileAdminRouter(service: {
 
   router.get("/admin", (_req: Request, res: Response) => {
     res.type("html").send(renderProfileAdminPage());
+  });
+
+  router.get("/admin/settings", (_req: Request, res: Response) => {
+    res.type("html").send(renderProjectAccessSettingsPage());
   });
 
   router.get("/api/admin/current-bridge", async (_req: Request, res: Response) => {

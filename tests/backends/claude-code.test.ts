@@ -17,6 +17,7 @@ function makeTask(prompt = "test prompt"): Task {
     context,
     backend: "claude-code",
     prompt,
+    instructions: [],
     requiresConfirmation: false,
   };
 }
@@ -101,6 +102,35 @@ describe("ClaudeCodeBackend", () => {
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toBe("output text");
     expect(result.taskId).toBe("task-1");
+  });
+
+  it("prepends instructions before the user prompt", async () => {
+    const { spawn } = await import("node:child_process");
+    const mockSpawn = spawn as unknown as ReturnType<typeof vi.fn>;
+
+    const fakeChild = createFakeChild("output text");
+    mockSpawn.mockReturnValue(fakeChild);
+
+    const task = makeTask("add a hello endpoint");
+    task.instructions = ["# Workspace Whitelist Skill", "Only access /repo/a"];
+    await backend.execute(task);
+
+    expect(mockSpawn).toHaveBeenCalledWith(
+      "claude",
+      [
+        "--print",
+        expect.stringContaining("# Workspace Whitelist Skill"),
+      ],
+      expect.any(Object),
+    );
+    expect(mockSpawn).toHaveBeenCalledWith(
+      "claude",
+      [
+        "--print",
+        expect.stringContaining("add a hello endpoint"),
+      ],
+      expect.any(Object),
+    );
   });
 
   it("execute collects stderr from streamed output", async () => {

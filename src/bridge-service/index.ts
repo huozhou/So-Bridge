@@ -16,12 +16,15 @@ import { ResultFormatter } from "./result-formatter.js";
 import { SessionStore } from "./session-store.js";
 import { StreamingExecutor } from "./streaming-executor.js";
 import { TaskDispatcher } from "./task-dispatcher.js";
+import type { PathValidationResult } from "../whitelist/path-validator.js";
 
 export interface BridgeConfig {
   port: number;
   authToken: string;
   backends: Map<string, ExecutionBackend>;
   defaultBackend: string;
+  taskInstructions?: string[];
+  validateCommand?: (command: string) => PathValidationResult;
 }
 
 export interface BridgeServiceComponents {
@@ -157,6 +160,8 @@ export function createBridgeService(config: BridgeConfig): BridgeService {
   const taskDispatcher = new TaskDispatcher({
     backends: config.backends,
     defaultBackend: config.defaultBackend,
+    taskInstructions: config.taskInstructions,
+    validateCommand: config.validateCommand,
   });
   const resultCollector = new ResultCollector();
   const resultFormatter = new ResultFormatter();

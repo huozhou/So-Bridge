@@ -3,6 +3,7 @@ import { homedir } from "node:os";
 import { promisify } from "node:util";
 
 import type { ExecutionBackend, ExecutionResult, StreamChunk, Task } from "../types.js";
+import { composeTaskPrompt } from "./prompt-utils.js";
 import { mergeChildStreams, collectStream } from "./stream-utils.js";
 
 const execAsync = promisify(exec);
@@ -39,7 +40,7 @@ export class CodexCliBackend implements ExecutionBackend {
     if (this.skipGitRepoCheck) {
       args.push("--skip-git-repo-check");
     }
-    args.push(task.prompt);
+    args.push(composeTaskPrompt(task));
 
     const child = spawn("codex", args, {
       cwd: this.cwd,

@@ -5,6 +5,8 @@ import type { BridgeConfigFile } from "../config/types.js";
 import { IMBot } from "../im-bot.js";
 import type { ActiveBridgeDefinition } from "./active-bridge.js";
 import { createPlatformManager } from "../platforms/manager.js";
+import { validateCommand } from "../whitelist/path-validator.js";
+import { renderWhitelistSkill } from "../whitelist/whitelist-skill.js";
 
 export interface AppRuntime {
   config: BridgeConfigFile;
@@ -53,6 +55,7 @@ export async function buildActiveBridgeRuntime(active: ActiveBridgeDefinition): 
   const config = createDefaultBridgeConfig();
   const selectedProjectPath =
     active.directoryPolicy.mode === "restricted" ? active.directoryPolicy.selectedPath : null;
+  const whitelistInstruction = renderWhitelistSkill(active.directoryPolicy);
 
   if (active.directoryPolicy.mode === "restricted" && !selectedProjectPath) {
     throw new Error("Restricted mode requires a selected whitelist path");
@@ -117,7 +120,43 @@ export async function buildActiveBridgeRuntime(active: ActiveBridgeDefinition): 
     }
   }
 
-  return buildAppRuntime(config);
+  const registry = createDefaultBackends({
+    codexEnabled: config.agents.codexCli.enabled,
+    codexSkipGitRepoCheck: config.agents.codexCli.skipGitRepoCheck,
+    claudeCodeEnabled: config.agents.claudeCode.enabled,
+    cursorEnabled: config.agents.cursor.enabled,
+    vscodeAgentEnabled: config.agents.vscodeAgent.enabled,
+    vscodeEndpoint: config.agents.vscodeAgent.endpoint,
+    sandboxEnabled: config.agents.cloudSandbox.enabled,
+    sandboxApiUrl: config.agents.cloudSandbox.apiUrl,
+    sandboxApiKey: config.agents.cloudSandbox.apiKey,
+    workingDir: config.agents.codexCli.workingDir,
+  });
+
+  const platformManager = createPlatformManager(config);
+  const bridge = createBridgeService({
+    port: config.server.port,
+    authToken: config.security.authToken,
+    backends: registry.toMap(),
+    defaultBackend: config.agents.defaultBackend,
+    taskInstructions: whitelistInstruction ? [whitelistInstruction] : [],
+    validateCommand:
+      active.directoryPolicy.mode === "restricted"
+        ? (command) => validateCommand(command, active.directoryPolicy.allowedPaths)
+        : undefined,
+  });
+  const bot = new IMBot({
+    pipeline: bridge,
+    webhookSecret: config.security.webhookSecret || undefined,
+  });
+
+  return {
+    config,
+    bridge,
+    bot,
+    platformManager,
+    availableBackends: await registry.getAvailable(),
+  };
 }
 
 function readString(value: string | boolean | undefined, fallback = ""): string {

@@ -17,6 +17,7 @@ function makeTask(prompt = "test prompt"): Task {
     context,
     backend: "cursor",
     prompt,
+    instructions: [],
     requiresConfirmation: false,
   };
 }
@@ -112,6 +113,44 @@ describe("CursorBackend", () => {
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toContain("Hello World");
     expect(result.taskId).toBe("task-1");
+  });
+
+  it("prepends instructions before the user prompt", async () => {
+    const { exec, spawn } = await import("node:child_process");
+    const mockExec = exec as unknown as ReturnType<typeof vi.fn>;
+    const mockSpawn = spawn as unknown as ReturnType<typeof vi.fn>;
+
+    mockExec.mockResolvedValueOnce({ stdout: "2026.03.25" });
+    await backend.isAvailable();
+
+    mockSpawn.mockReturnValue(createStreamJsonChild([]));
+
+    const task = makeTask("say hello");
+    task.instructions = ["# Workspace Whitelist Skill", "Only access /repo/a"];
+    await backend.execute(task);
+
+    expect(mockSpawn).toHaveBeenCalledWith(
+      expect.any(String),
+      [
+        "-p",
+        "--output-format",
+        "stream-json",
+        "--stream-partial-output",
+        expect.stringContaining("# Workspace Whitelist Skill"),
+      ],
+      expect.any(Object),
+    );
+    expect(mockSpawn).toHaveBeenCalledWith(
+      expect.any(String),
+      [
+        "-p",
+        "--output-format",
+        "stream-json",
+        "--stream-partial-output",
+        expect.stringContaining("say hello"),
+      ],
+      expect.any(Object),
+    );
   });
 
   it("execute collects stderr", async () => {

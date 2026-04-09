@@ -3,6 +3,7 @@ import { homedir } from "node:os";
 import { promisify } from "node:util";
 
 import type { ExecutionBackend, ExecutionResult, StreamChunk, Task } from "../types.js";
+import { composeTaskPrompt } from "./prompt-utils.js";
 import { mergeChildStreams, collectStream } from "./stream-utils.js";
 
 const execAsync = promisify(exec);
@@ -33,7 +34,7 @@ export class ClaudeCodeBackend implements ExecutionBackend {
   async *executeStream(task: Task): AsyncIterable<StreamChunk> {
     yield { type: "status", content: "Claude is thinking...", timestamp: Date.now() };
 
-    const child = spawn("claude", ["--print", task.prompt], {
+    const child = spawn("claude", ["--print", composeTaskPrompt(task)], {
       cwd: this.cwd,
       stdio: ["ignore", "pipe", "pipe"],
     });
