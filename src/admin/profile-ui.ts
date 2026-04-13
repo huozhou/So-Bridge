@@ -151,8 +151,8 @@ export function renderProfileAdminPage(): string {
         gap: 20px;
         grid-template-columns: repeat(2, minmax(0, 1fr));
       }
-      .panel { padding: 24px; }
       .panel {
+        padding: 24px;
         position: relative;
         overflow: visible;
       }
@@ -222,8 +222,7 @@ export function renderProfileAdminPage(): string {
       }
       button,
       select,
-      input,
-      textarea {
+      input {
         font: inherit;
       }
       button {
@@ -274,8 +273,7 @@ export function renderProfileAdminPage(): string {
         letter-spacing: 0.08em;
       }
       .field,
-      .select,
-      .textarea {
+      .select {
         width: 100%;
         border: 1px solid var(--border);
         border-radius: 16px;
@@ -285,8 +283,7 @@ export function renderProfileAdminPage(): string {
         outline: none;
       }
       .field:focus,
-      .select:focus,
-      .textarea:focus {
+      .select:focus {
         border-color: #111111;
         box-shadow: 0 0 0 3px rgba(17, 17, 17, 0.08);
       }
@@ -353,10 +350,6 @@ export function renderProfileAdminPage(): string {
       .custom-select-option.active {
         background: var(--surface);
       }
-      .textarea {
-        min-height: 132px;
-        resize: vertical;
-      }
       .split {
         display: grid;
         gap: 12px;
@@ -366,13 +359,6 @@ export function renderProfileAdminPage(): string {
         font-size: 13px;
         color: var(--muted);
         line-height: 1.5;
-      }
-      .warning {
-        padding: 14px 16px;
-        border: 1px solid var(--border);
-        border-radius: 18px;
-        background: #111111;
-        color: #ffffff;
       }
       .field-error {
         min-height: 18px;
@@ -1067,7 +1053,6 @@ export function renderProjectAccessSettingsPage(): string {
         --border: #d4d4d8;
         --danger: #b91c1c;
         --active: #16a34a;
-        --active-soft: #dcfce7;
       }
       * { box-sizing: border-box; }
       body {
@@ -1207,13 +1192,11 @@ export function renderProjectAccessSettingsPage(): string {
         letter-spacing: 0.08em;
       }
       .field,
-      .select,
       button,
       a.button-link {
         font: inherit;
       }
-      .field,
-      .select {
+      .field {
         width: 100%;
         border: 1px solid var(--border);
         border-radius: 16px;
@@ -1222,73 +1205,9 @@ export function renderProjectAccessSettingsPage(): string {
         padding: 14px 16px;
         outline: none;
       }
-      .field:focus,
-      .select:focus {
+      .field:focus {
         border-color: #111111;
         box-shadow: 0 0 0 3px rgba(17, 17, 17, 0.08);
-      }
-      .native-select {
-        display: none;
-      }
-      .custom-select {
-        position: relative;
-      }
-      .custom-select-trigger {
-        display: inline-flex;
-        align-items: center;
-        width: 100%;
-        justify-content: space-between;
-        border-radius: 16px;
-        border: 1px solid var(--border);
-        background: #ffffff;
-        color: var(--ink);
-        padding: 14px 16px;
-        line-height: 1.2;
-      }
-      .custom-select-trigger:focus {
-        border-color: #111111;
-        box-shadow: 0 0 0 3px rgba(17, 17, 17, 0.08);
-      }
-      .custom-select-arrow {
-        width: 10px;
-        height: 10px;
-        border-right: 1.5px solid #6b7280;
-        border-bottom: 1.5px solid #6b7280;
-        transform: rotate(45deg) translateY(-2px);
-        flex-shrink: 0;
-      }
-      .custom-select.open .custom-select-arrow {
-        transform: rotate(-135deg) translateX(-2px);
-      }
-      .custom-select-menu {
-        position: absolute;
-        top: calc(100% + 8px);
-        left: 0;
-        right: 0;
-        display: none;
-        padding: 8px;
-        border: 1px solid var(--border);
-        border-radius: 18px;
-        background: #ffffff;
-        box-shadow: 0 18px 36px rgba(17, 17, 17, 0.12);
-        z-index: 24;
-      }
-      .custom-select.open .custom-select-menu {
-        display: grid;
-        gap: 6px;
-      }
-      .custom-select-option {
-        width: 100%;
-        border: 0;
-        border-radius: 12px;
-        padding: 12px 14px;
-        background: #ffffff;
-        color: var(--ink);
-        text-align: left;
-      }
-      .custom-select-option:hover,
-      .custom-select-option.active {
-        background: var(--surface);
       }
       button,
       a.button-link {

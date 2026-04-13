@@ -8,19 +8,21 @@
   },
   "files": [
     "dist",
+    "generated",
     "README.md",
     "README.zh-CN.md",
     "LICENSE"
   ],
   "scripts": {
-    "build": "tsc",
+    "sync:version": "node scripts/generate-version.mjs",
+    "build": "npm run sync:version && tsc",
     "postbuild": "chmod +x dist/cli/index.js",
     "prepack": "npm run build",
     "start": "node dist/index.js",
     "dev": "tsx watch src/index.ts",
-    "test": "vitest run",
+    "test": "npm run sync:version && vitest run",
     "test:admin": "vitest run tests/admin/",
-    "test:watch": "vitest"
+    "test:watch": "npm run sync:version && vitest"
   },
   "dependencies": {
     "@larksuiteoapi/node-sdk": "^1.59.0",

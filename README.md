@@ -76,11 +76,31 @@ Install any of these CLI tools, and `so-bridge` can bridge your chat directly in
 
 ## CLI Commands
 
+Install from npm:
+
 ```bash
+npm install -g so-bridge
+```
+
+Or run it without a global install:
+
+```bash
+npx so-bridge --help
+```
+
+```bash
+so-bridge --help     # Show CLI help
+so-bridge --version  # Show installed version
 so-bridge start     # Start the bridge service
 so-bridge status    # Show current bridge state and config paths
 so-bridge open      # Open admin console in browser
 so-bridge purge     # Remove all local config and state
+```
+
+Each command also supports `--help`, for example:
+
+```bash
+so-bridge status --help
 ```
 
 For development, use the npm scripts:

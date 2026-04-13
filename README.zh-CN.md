@@ -76,11 +76,31 @@ npm start
 
 ## CLI 命令
 
+可以直接通过 npm 安装：
+
 ```bash
+npm install -g so-bridge
+```
+
+如果不想全局安装，也可以直接运行：
+
+```bash
+npx so-bridge --help
+```
+
+```bash
+so-bridge --help     # 查看 CLI 帮助
+so-bridge --version  # 查看当前版本
 so-bridge start     # 启动 bridge 服务
 so-bridge status    # 查看当前 bridge 状态和配置路径
 so-bridge open      # 在浏览器中打开管理界面
 so-bridge purge     # 删除本地配置和状态
+```
+
+每个子命令也支持 `--help`，例如：
+
+```bash
+so-bridge status --help
 ```
 
 开发时也可以使用 npm scripts：
