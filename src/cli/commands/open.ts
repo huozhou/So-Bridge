@@ -1,17 +1,21 @@
 export async function runOpenCommand(
   deps: {
-    isReachable: () => Promise<boolean>;
+    statusProvider: () => Promise<{
+      runtimeReachable: boolean;
+      runtimeAdminUrl: string | null;
+      savedAdminUrl: string;
+    }>;
     openUrl: (url: string) => Promise<void>;
-    url: string;
     print: (line: string) => void;
   },
 ): Promise<void> {
-  if (!(await deps.isReachable())) {
-    throw new Error(
-      `Cannot open admin because the local bridge is not running on ${deps.url}`,
-    );
+  const status = await deps.statusProvider();
+  if (status.runtimeReachable && status.runtimeAdminUrl) {
+    await deps.openUrl(status.runtimeAdminUrl);
+    deps.print(`Opened ${status.runtimeAdminUrl}`);
+    return;
   }
 
-  await deps.openUrl(deps.url);
-  deps.print(`Opened ${deps.url}`);
+  await deps.openUrl(status.savedAdminUrl);
+  deps.print(`Runtime admin is unreachable. Opened configured admin URL: ${status.savedAdminUrl}`);
 }

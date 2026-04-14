@@ -4,8 +4,15 @@ import { rm } from "node:fs/promises";
 
 import { getSoBridgePaths, type SoBridgePaths } from "../app-paths.js";
 import { CLI_VERSION } from "../../generated/version.js";
+import {
+  buildAdminUrl,
+  buildHealthUrl,
+  resolveServerBinding,
+  type ServerBinding,
+} from "../server/server-binding.js";
 import { SoBridgeStore } from "../storage/so-bridge-store.js";
 import { getBrowserOpenFailureMessage, openInBrowser } from "./browser.js";
+import { runConfigCommand } from "./commands/config.js";
 import { runOpenCommand } from "./commands/open.js";
 import { runPurgeCommand } from "./commands/purge.js";
 import { runStartCommand } from "./commands/start.js";
@@ -16,15 +23,14 @@ export interface CliDeps {
   print: (line: string) => void;
   statusProvider: () => Promise<CliStatus>;
   purge: () => Promise<void>;
-  start?: () => Promise<void>;
+  setConfigPort?: (port: number) => Promise<void>;
+  start?: (options: { port?: number }) => Promise<void>;
   stop?: () => Promise<void>;
-  isReachable?: () => Promise<boolean>;
   openUrl?: (url: string) => Promise<void>;
-  url?: string;
   setExitCode?: (code: number) => void;
 }
 
-type CliCommandName = "start" | "status" | "open" | "stop" | "purge";
+type CliCommandName = "config" | "start" | "status" | "open" | "stop" | "purge";
 
 type CliCommandDefinition = {
   name: CliCommandName;
@@ -34,9 +40,14 @@ type CliCommandDefinition = {
 
 const CLI_COMMANDS: CliCommandDefinition[] = [
   {
+    name: "config",
+    summary: "Manage local CLI settings",
+    usage: "so-bridge config set port <number>",
+  },
+  {
     name: "start",
     summary: "Start the bridge service",
-    usage: "so-bridge start",
+    usage: "so-bridge start [--port <number>]",
   },
   {
     name: "status",
@@ -62,38 +73,38 @@ const CLI_COMMANDS: CliCommandDefinition[] = [
 
 function createDefaultCliDeps(): CliDeps {
   const paths = getSoBridgePaths();
-  const url = "http://127.0.0.1:3000/admin";
 
   return {
     print: console.log,
-    statusProvider: async () => readStatusFromLocalStore(paths),
+    statusProvider: async () =>
+      readStatusFromLocalStore(paths, {
+        probeRuntimeReachability: probeRuntimeReachability,
+      }),
     purge: async () => {
       await rm(paths.configDir, { recursive: true, force: true });
       await rm(paths.dataDir, { recursive: true, force: true });
       await rm(paths.logDir, { recursive: true, force: true });
     },
-    isReachable: async () => {
-      try {
-        const response = await fetch("http://127.0.0.1:3000/health");
-        return response.ok;
-      } catch {
-        return false;
-      }
+    setConfigPort: async (port) => {
+      const store = new SoBridgeStore(paths);
+      const { config } = await store.readAll();
+      config.server.port = port;
+      await store.writeConfig(config);
     },
     openUrl: openInBrowser,
-    url,
     setExitCode: (code: number) => {
       process.exitCode = code;
     },
-    start: async () => {
+    start: async (options) => {
       const { startSoBridgeServer } = await import("../index.js");
-      await startSoBridgeServer();
+      await startSoBridgeServer(options);
     },
   };
 }
 
 export async function runCli(argv: string[], deps: CliDeps): Promise<void> {
-  const [command, subcommandOrFlag] = argv;
+  const [command, ...args] = argv;
+  const subcommandOrFlag = args[0];
 
   try {
     if (!command || command === "--help" || command === "-h" || command === "help") {
@@ -116,13 +127,28 @@ export async function runCli(argv: string[], deps: CliDeps): Promise<void> {
       return;
     }
 
+    if (command === "config") {
+      await runConfigCommand({
+        args,
+        parsePort: parseCliPort,
+        print: deps.print,
+        setPort: deps.setConfigPort,
+      });
+      return;
+    }
+
     if (command === "purge") {
       await runPurgeCommand(deps);
       return;
     }
 
     if (command === "start") {
-      await runStartCommand(deps);
+      const options = parseStartOptions(args);
+      await runStartCommand({
+        port: options.port,
+        print: deps.print,
+        start: deps.start,
+      });
       return;
     }
 
@@ -133,7 +159,6 @@ export async function runCli(argv: string[], deps: CliDeps): Promise<void> {
 
     if (command === "open") {
       await runOpenCommand({
-        isReachable: deps.isReachable ?? (async () => false),
         openUrl: async (url) => {
           try {
             await (deps.openUrl ?? openInBrowser)(url);
@@ -141,8 +166,8 @@ export async function runCli(argv: string[], deps: CliDeps): Promise<void> {
             throw new Error(getBrowserOpenFailureMessage(url));
           }
         },
-        url: deps.url ?? "http://127.0.0.1:3000/admin",
         print: deps.print,
+        statusProvider: deps.statusProvider,
       });
       return;
     }
@@ -188,23 +213,114 @@ function printCommandHelp(commandName: CliCommandName, print: (line: string) => 
   print("");
   print("Usage:");
   print(`  ${command.usage}`);
+  if (command.name === "config") {
+    print("");
+    print("Commands:");
+    print("  so-bridge config set port <number>");
+  }
 }
 
-export async function readStatusFromLocalStore(paths: SoBridgePaths = getSoBridgePaths()): Promise<CliStatus> {
+export async function readStatusFromLocalStore(
+  paths: SoBridgePaths = getSoBridgePaths(),
+  options: {
+    probeRuntimeReachability?: (urls: {
+      adminUrl: string | null;
+      healthUrl: string | null;
+    }) => Promise<boolean>;
+  } = {},
+): Promise<CliStatus> {
   const store = new SoBridgeStore(paths);
   const snapshot = await store.readAll();
   const activeProfile =
     snapshot.state.activeBridgeProfileId === null
       ? null
       : snapshot.config.bridgeProfiles.find((profile) => profile.id === snapshot.state.activeBridgeProfileId) ?? null;
+  const savedBinding = resolveServerBinding(snapshot.config);
+  const runtimeBinding = toRuntimeBinding(snapshot.state.runtimeServer);
+  const runtimeAdminUrl = runtimeBinding ? buildAdminUrl(runtimeBinding) : null;
+  const runtimeHealthUrl = runtimeBinding ? buildHealthUrl(runtimeBinding) : null;
 
   return {
     activeBridgeProfileName: activeProfile?.name ?? null,
     directoryMode: snapshot.config.directoryPolicy.mode,
     selectedPath: snapshot.config.directoryPolicy.selectedPath,
+    savedPort: savedBinding.port,
+    runtimePort: runtimeBinding?.port ?? null,
+    runtimeReachable: options.probeRuntimeReachability
+      ? await options.probeRuntimeReachability({
+          adminUrl: runtimeAdminUrl,
+          healthUrl: runtimeHealthUrl,
+        })
+      : false,
+    savedAdminUrl: buildAdminUrl(savedBinding),
+    runtimeAdminUrl,
     configFile: paths.configFile,
     stateFile: paths.stateFile,
   };
+}
+
+function parseStartOptions(args: string[]): { port?: number } {
+  if (args.length === 0) {
+    return {};
+  }
+
+  const [flag, value] = args;
+  if (flag === "--port" && args.length === 2) {
+    return { port: parseCliPort(value) };
+  }
+
+  throw new Error("Usage: so-bridge start [--port <number>]");
+}
+
+function parseCliPort(value: string | undefined): number {
+  if (!value || !/^\d+$/.test(value)) {
+    throw new Error("Port must be an integer between 1 and 65535.");
+  }
+
+  const port = Number(value);
+  if (!Number.isInteger(port) || port < 1 || port > 65535) {
+    throw new Error("Port must be an integer between 1 and 65535.");
+  }
+
+  return port;
+}
+
+function toRuntimeBinding(
+  runtimeServer: {
+    host: string;
+    port: number;
+  } | null,
+): ServerBinding | null {
+  if (!runtimeServer) {
+    return null;
+  }
+
+  return {
+    host: runtimeServer.host,
+    port: runtimeServer.port,
+  };
+}
+
+async function probeRuntimeReachability(urls: {
+  adminUrl: string | null;
+  healthUrl: string | null;
+}): Promise<boolean> {
+  for (const url of [urls.healthUrl, urls.adminUrl]) {
+    if (!url) {
+      continue;
+    }
+
+    try {
+      const response = await fetch(url);
+      if (response.ok) {
+        return true;
+      }
+    } catch {
+      continue;
+    }
+  }
+
+  return false;
 }
 
 if (typeof require !== "undefined" && require.main === module) {
