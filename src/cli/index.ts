@@ -305,23 +305,47 @@ async function probeRuntimeReachability(urls: {
   adminUrl: string | null;
   healthUrl: string | null;
 }): Promise<boolean> {
-  for (const url of [urls.healthUrl, urls.adminUrl]) {
-    if (!url) {
-      continue;
-    }
-
-    try {
-      const response = await fetch(url);
-      if (response.ok) {
-        return true;
-      }
-    } catch {
-      continue;
-    }
+  if (!urls.healthUrl) {
+    return false;
   }
 
-  return false;
+  try {
+    const response = await fetch(urls.healthUrl);
+    if (!response.ok) {
+      return false;
+    }
+
+    return isSoBridgeHealthPayload(await response.json());
+  } catch {
+    return false;
+  }
 }
+
+function isSoBridgeHealthPayload(payload: unknown): boolean {
+  if (typeof payload !== "object" || payload === null) {
+    return false;
+  }
+
+  const value = payload as Record<string, unknown>;
+  const server = value.server;
+
+  return (
+    value.status === "ok" &&
+    Array.isArray(value.backends) &&
+    value.backends.every((item) => typeof item === "string") &&
+    Array.isArray(value.platforms) &&
+    value.platforms.every((item) => typeof item === "string") &&
+    typeof value.configPath === "string" &&
+    typeof value.statePath === "string" &&
+    typeof server === "object" &&
+    server !== null &&
+    typeof (server as { host?: unknown }).host === "string" &&
+    typeof (server as { port?: unknown }).port === "number" &&
+    Number.isInteger((server as { port: number }).port)
+  );
+}
+
+export { probeRuntimeReachability };
 
 if (typeof require !== "undefined" && require.main === module) {
   void runCli(process.argv.slice(2), createDefaultCliDeps());

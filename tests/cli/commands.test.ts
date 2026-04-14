@@ -7,7 +7,11 @@ import { describe, expect, it, vi } from "vitest";
 import packageJson from "../../package.json";
 import { CLI_VERSION } from "../../generated/version.js";
 import type { SoBridgePaths } from "../../src/app-paths.js";
-import { readStatusFromLocalStore, runCli } from "../../src/cli/index.js";
+import {
+  probeRuntimeReachability,
+  readStatusFromLocalStore,
+  runCli,
+} from "../../src/cli/index.js";
 
 describe("runCli", () => {
   it("prints main help for --help", async () => {
@@ -409,6 +413,71 @@ describe("readStatusFromLocalStore", () => {
       });
     } finally {
       await rm(root, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("probeRuntimeReachability", () => {
+  it("rejects unrelated 2xx health responses", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ status: "ok" }), {
+        status: 200,
+        headers: {
+          "content-type": "application/json",
+        },
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    try {
+      await expect(
+        probeRuntimeReachability({
+          adminUrl: "http://127.0.0.1:3300/admin",
+          healthUrl: "http://127.0.0.1:3300/health",
+        }),
+      ).resolves.toBe(false);
+      expect(fetchMock).toHaveBeenCalledWith("http://127.0.0.1:3300/health");
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("accepts so-bridge shaped health responses", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          status: "ok",
+          backends: [],
+          platforms: [],
+          configPath: "/cfg/config.json",
+          statePath: "/data/state.json",
+          server: {
+            host: "127.0.0.1",
+            port: 3300,
+          },
+        }),
+        {
+          status: 200,
+          headers: {
+            "content-type": "application/json",
+          },
+        },
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    try {
+      await expect(
+        probeRuntimeReachability({
+          adminUrl: "http://127.0.0.1:3300/admin",
+          healthUrl: "http://127.0.0.1:3300/health",
+        }),
+      ).resolves.toBe(true);
+      expect(fetchMock).toHaveBeenCalledWith("http://127.0.0.1:3300/health");
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.unstubAllGlobals();
     }
   });
 });

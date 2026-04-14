@@ -3,6 +3,7 @@ import type {
   BotIntegration,
   BridgeProfile,
   DirectoryPolicy,
+  ServerConfig,
   SoBridgeConfig,
 } from "../models/so-bridge-config.js";
 
@@ -11,6 +12,7 @@ export interface ActiveBridgeDefinition {
   botIntegration: BotIntegration | null;
   aiAssistant: AIAssistant | null;
   directoryPolicy: DirectoryPolicy;
+  server: ServerConfig;
 }
 
 export function resolveActiveBridge(
@@ -31,5 +33,6 @@ export function resolveActiveBridge(
       ? config.aiAssistants.find((item) => item.id === bridgeProfile.aiAssistantId) ?? null
       : null,
     directoryPolicy: config.directoryPolicy,
+    server: config.server,
   };
 }

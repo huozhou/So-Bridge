@@ -62,6 +62,7 @@ export async function buildActiveBridgeRuntime(active: ActiveBridgeDefinition): 
   }
 
   config.platforms.mode = "websocket";
+  config.server.port = active.server.port;
   config.platforms.slack.enabled = false;
   config.platforms.lark.enabled = false;
   config.agents.codexCli.enabled = false;

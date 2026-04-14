@@ -5,6 +5,16 @@ import { buildActiveBridgeRuntime } from "../../src/runtime/app-runtime.js";
 import { resolveActiveBridge } from "../../src/runtime/active-bridge.js";
 
 describe("resolveActiveBridge", () => {
+  it("carries the saved server port into the built runtime config", async () => {
+    const config = createDefaultSoBridgeConfig();
+    config.server.port = 4310;
+
+    const active = resolveActiveBridge(config, null);
+    const runtime = await buildActiveBridgeRuntime(active);
+
+    expect(runtime.config.server.port).toBe(4310);
+  });
+
   it("surfaces the selected whitelist path for restricted mode", () => {
     const config = createDefaultSoBridgeConfig();
     config.directoryPolicy.mode = "restricted";

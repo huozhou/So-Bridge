@@ -7,6 +7,29 @@ import {
 import { ProfileRuntimeManager } from "../../src/runtime/profile-runtime-manager.js";
 
 describe("ProfileRuntimeManager", () => {
+  it("passes the saved server port into the active runtime definition", async () => {
+    const config = createDefaultSoBridgeConfig();
+    config.server.port = 4310;
+    const state = createDefaultSoBridgeState();
+
+    const buildRuntime = vi.fn().mockResolvedValue({ runtimeId: "runtime-1" });
+    const manager = new ProfileRuntimeManager({
+      loadSnapshot: vi.fn().mockResolvedValue({ config, state }),
+      buildRuntime,
+      saveState: vi.fn(),
+    });
+
+    await manager.initialize();
+
+    expect(buildRuntime).toHaveBeenCalledWith(
+      expect.objectContaining({
+        server: expect.objectContaining({
+          port: 4310,
+        }),
+      }),
+    );
+  });
+
   it("applies the active bridge profile", async () => {
     const config = createDefaultSoBridgeConfig();
     config.botIntegrations.push({
