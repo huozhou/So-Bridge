@@ -93,6 +93,8 @@ npx so-bridge --help
 ```bash
 so-bridge --help     # 查看 CLI 帮助
 so-bridge --version  # 查看当前版本
+so-bridge config set port 3456  # 持久保存服务端口
+so-bridge start --port 3456      # 仅本次启动临时覆盖端口
 so-bridge start     # 启动 bridge 服务
 so-bridge status    # 查看当前 bridge 状态和配置路径
 so-bridge open      # 在浏览器中打开管理界面
@@ -104,6 +106,10 @@ so-bridge purge     # 删除本地配置和状态
 ```bash
 so-bridge status --help
 ```
+
+`so-bridge config set port <n>` 会把端口保存到本地配置中。
+`so-bridge start --port <n>` 只会为当前进程使用临时运行时端口，不会修改已保存的端口。
+`so-bridge status` 和 `so-bridge open` 会优先使用当前可用的运行时端口。
 
 开发时也可以使用 npm scripts：
 

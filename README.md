@@ -93,6 +93,8 @@ npx so-bridge --help
 ```bash
 so-bridge --help     # Show CLI help
 so-bridge --version  # Show installed version
+so-bridge config set port 3456  # Save the service port for future starts
+so-bridge start --port 3456      # Start once with a temporary port override
 so-bridge start     # Start the bridge service
 so-bridge status    # Show current bridge state and config paths
 so-bridge open      # Open admin console in browser
@@ -104,6 +106,10 @@ Each command also supports `--help`, for example:
 ```bash
 so-bridge status --help
 ```
+
+`so-bridge config set port <n>` updates the saved port in local config.
+`so-bridge start --port <n>` uses a temporary runtime override for that process only and does not change the saved value.
+`so-bridge status` and `so-bridge open` prefer the active runtime port when it is available.
 
 For development, use the npm scripts:
 
