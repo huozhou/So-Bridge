@@ -150,6 +150,7 @@ function isRuntimeServerRecord(
   const source = value as Record<string, unknown>;
   return (
     typeof source.host === "string" &&
+    typeof source.port === "number" &&
     Number.isInteger(source.port) &&
     source.port >= 1 &&
     source.port <= 65535 &&

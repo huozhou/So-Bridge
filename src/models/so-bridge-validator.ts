@@ -331,7 +331,7 @@ function normalizeServer(
     };
   }
 
-  if (!Number.isInteger(port) || port < 1 || port > 65535) {
+  if (typeof port !== "number" || !Number.isInteger(port) || port < 1 || port > 65535) {
     issues.push({
       path: "server.port",
       message: "server.port must be an integer between 1 and 65535",
