@@ -8,12 +8,18 @@ import type { SoBridgeConfig, SoBridgeState } from "./models/so-bridge-config.js
 import { convertToIMMessage } from "./platforms/incoming-message-converter.js";
 import { buildActiveBridgeRuntime } from "./runtime/app-runtime.js";
 import { ProfileRuntimeManager } from "./runtime/profile-runtime-manager.js";
+import {
+  buildAdminUrl,
+  buildBaseUrl,
+  clearRuntimeServer,
+  resolveServerBinding,
+  setRuntimeServer,
+  type ServerBinding,
+} from "./server/server-binding.js";
 import { SoBridgeStore } from "./storage/so-bridge-store.js";
 import type { IMClient, IncomingMessage, StreamingCardSession } from "./platforms/types.js";
 import type { StreamingOptions } from "./types.js";
 
-const DEFAULT_HOST = "127.0.0.1";
-const DEFAULT_PORT = 3000;
 const DEFAULT_AUTH_TOKEN = "dev-token";
 
 function parseConfirmationResponse(body: unknown): import("./types.js").ConfirmationResponse {
@@ -151,7 +157,7 @@ function buildUserFacingError(err: unknown): string {
   return `[Error] ${raw || "Unknown error"}`;
 }
 
-export async function startSoBridgeServer(): Promise<void> {
+export async function startSoBridgeServer(options: { port?: number } = {}): Promise<void> {
   const paths = getSoBridgePaths();
   const store = new SoBridgeStore(paths);
   let createdDefaultConfig = false;
@@ -180,6 +186,8 @@ export async function startSoBridgeServer(): Promise<void> {
   });
   const runtime = await runtimeManager.initialize();
   const platformManager = runtime.platformManager;
+  const effectiveBinding = resolveServerBinding(runtimeManager.getRuntime().config, options);
+  let activeBinding: ServerBinding = effectiveBinding;
 
   const app = express();
   app.use(
@@ -262,64 +270,163 @@ export async function startSoBridgeServer(): Promise<void> {
       configPath: store.getPaths().configFile,
       statePath: store.getPaths().stateFile,
       server: {
-        host: DEFAULT_HOST,
-        port: DEFAULT_PORT,
+        host: activeBinding.host,
+        port: activeBinding.port,
       },
     });
   });
 
-  app.listen(DEFAULT_PORT, DEFAULT_HOST, async () => {
-    const status = runtimeManager.getStatus();
-    const baseUrl = `http://${DEFAULT_HOST}:${DEFAULT_PORT}`;
-    console.log(`so-bridge listening on ${baseUrl}`);
-    console.log(`Admin console: ${baseUrl}/admin`);
-    console.log(`Active bridge: ${status.activeBridgeProfileName ?? "(none)"}`);
-    console.log(`Available AI assistants: ${runtime.availableBackends.join(", ") || "(none)"}`);
-    console.log(`Config: ${store.getPaths().configFile}`);
-    console.log(`State: ${store.getPaths().stateFile}`);
-    if (createdDefaultConfig || createdDefaultState) {
-      console.log("Created default so-bridge config/state on startup. Open /admin to finish setup.");
+  const persistRuntimeServer = async (binding: ServerBinding | null, startedAt?: string): Promise<void> => {
+    const current = await store.readAll();
+    if (binding && startedAt) {
+      setRuntimeServer(current.state, binding.host, binding.port, startedAt);
+    } else {
+      clearRuntimeServer(current.state);
     }
+    await store.writeState(current.state);
+  };
 
-    for (const p of platformManager.getPlatforms()) {
-      p.transport.on("message", async (incoming: IncomingMessage) => {
-        try {
-          const activeRuntime = runtimeManager.getRuntime();
-          const imMessage = convertToIMMessage(incoming);
-          console.log(`[${p.name}] received message from ${imMessage.userId}: "${imMessage.content.slice(0, 80)}"`);
-          const replyThreadId = incoming.threadId ?? incoming.messageId;
-          const streaming = buildStreamingOptions(p.client, incoming.channelId, replyThreadId, incoming.userId);
-          const result = await activeRuntime.bot.onMessage(imMessage, streaming);
-          console.log(`[${p.name}] task done: ${result.summary.slice(0, 120)} (stdout ${result.markdown.length} chars)`);
+  await new Promise<void>((resolve, reject) => {
+    let settled = false;
+    let shuttingDown = false;
+    let startupComplete = false;
 
-          if (!streaming && result.markdown) {
-            await p.client.sendMessage(incoming.channelId, result.markdown, {
-              threadId: replyThreadId,
-            });
-          }
-        } catch (err) {
-          console.error(`[${p.name}] message handling error:`, err);
-          const userError = buildUserFacingError(err);
-          try {
-            await sendErrorCard(p.client, incoming.channelId, userError);
-          } catch (sendErr) {
-            console.error(`[${p.name}] failed to send error message to IM:`, sendErr);
-          }
+    const finishResolve = () => {
+      if (!settled) {
+        settled = true;
+        resolve();
+      }
+    };
+
+    const finishReject = (error: Error) => {
+      if (!settled) {
+        settled = true;
+        reject(error);
+      }
+    };
+
+    const server = app.listen(effectiveBinding.port, effectiveBinding.host);
+
+    const cleanupSignalHandlers = () => {
+      process.off("SIGINT", handleSignal);
+      process.off("SIGTERM", handleSignal);
+    };
+
+    const handleSignal = async () => {
+      if (shuttingDown) {
+        return;
+      }
+      shuttingDown = true;
+      cleanupSignalHandlers();
+
+      try {
+        await persistRuntimeServer(null);
+      } catch (error) {
+        console.error("Failed to clear runtime server state during shutdown:", error);
+      }
+
+      server.close(() => {
+        process.exit(0);
+      });
+    };
+
+    process.once("SIGINT", handleSignal);
+    process.once("SIGTERM", handleSignal);
+
+    const rejectStartup = (error: Error) => {
+      cleanupSignalHandlers();
+      server.close();
+      finishReject(error);
+    };
+
+    server.on("error", (error: NodeJS.ErrnoException) => {
+      if (startupComplete || settled) {
+        return;
+      }
+
+      if (error.code === "EADDRINUSE") {
+        rejectStartup(new Error(`Port ${effectiveBinding.port} is already in use`));
+        return;
+      }
+
+      rejectStartup(error);
+    });
+
+    server.once("listening", async () => {
+      try {
+        const address = server.address();
+        if (address && typeof address === "object") {
+          activeBinding = {
+            host: effectiveBinding.host,
+            port: address.port,
+          };
         }
-      });
-      p.transport.on("stateChange", (state) => {
-        console.log(`[${p.name}] transport state: ${state}`);
-      });
-      p.transport.on("error", (err) => {
-        console.error(`[${p.name}] transport error:`, err);
-      });
-    }
 
-    await platformManager.startAll();
-    const platformNames = platformManager.getPlatforms().map((p) => p.name);
-    if (platformNames.length > 0) {
-      console.log(`Bot Connections: ${platformNames.join(", ")}`);
-    }
+        const status = runtimeManager.getStatus();
+        console.log(`so-bridge listening on ${buildBaseUrl(activeBinding)}`);
+        console.log(`Admin console: ${buildAdminUrl(activeBinding)}`);
+        console.log(`Active bridge: ${status.activeBridgeProfileName ?? "(none)"}`);
+        console.log(`Available AI assistants: ${runtime.availableBackends.join(", ") || "(none)"}`);
+        console.log(`Config: ${store.getPaths().configFile}`);
+        console.log(`State: ${store.getPaths().stateFile}`);
+        if (createdDefaultConfig || createdDefaultState) {
+          console.log("Created default so-bridge config/state on startup. Open /admin to finish setup.");
+        }
+
+        for (const p of platformManager.getPlatforms()) {
+          p.transport.on("message", async (incoming: IncomingMessage) => {
+            try {
+              const activeRuntime = runtimeManager.getRuntime();
+              const imMessage = convertToIMMessage(incoming);
+              console.log(`[${p.name}] received message from ${imMessage.userId}: "${imMessage.content.slice(0, 80)}"`);
+              const replyThreadId = incoming.threadId ?? incoming.messageId;
+              const streaming = buildStreamingOptions(p.client, incoming.channelId, replyThreadId, incoming.userId);
+              const result = await activeRuntime.bot.onMessage(imMessage, streaming);
+              console.log(`[${p.name}] task done: ${result.summary.slice(0, 120)} (stdout ${result.markdown.length} chars)`);
+
+              if (!streaming && result.markdown) {
+                await p.client.sendMessage(incoming.channelId, result.markdown, {
+                  threadId: replyThreadId,
+                });
+              }
+            } catch (err) {
+              console.error(`[${p.name}] message handling error:`, err);
+              const userError = buildUserFacingError(err);
+              try {
+                await sendErrorCard(p.client, incoming.channelId, userError);
+              } catch (sendErr) {
+                console.error(`[${p.name}] failed to send error message to IM:`, sendErr);
+              }
+            }
+          });
+          p.transport.on("stateChange", (state) => {
+            console.log(`[${p.name}] transport state: ${state}`);
+          });
+          p.transport.on("error", (err) => {
+            console.error(`[${p.name}] transport error:`, err);
+          });
+        }
+
+        await platformManager.startAll();
+        const platformNames = platformManager.getPlatforms().map((p) => p.name);
+        if (platformNames.length > 0) {
+          console.log(`Bot Connections: ${platformNames.join(", ")}`);
+        }
+
+        await persistRuntimeServer(activeBinding, new Date().toISOString());
+        startupComplete = true;
+        finishResolve();
+      } catch (error) {
+        cleanupSignalHandlers();
+        try {
+          await persistRuntimeServer(null);
+        } catch (clearError) {
+          console.error("Failed to clear runtime server state after startup failure:", clearError);
+        }
+        server.close();
+        finishReject(error instanceof Error ? error : new Error(String(error)));
+      }
+    });
   });
 }
 
