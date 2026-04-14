@@ -30,6 +30,8 @@
 
 ## 快速开始
 
+需要 Node.js 20 或更高版本。
+
 ```bash
 npm install
 npm run build

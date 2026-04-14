@@ -72,7 +72,7 @@ describe("ClaudeCodeBackend", () => {
 
     const result = await backend.isAvailable();
     expect(result).toBe(true);
-    expect(mockExec).toHaveBeenCalledWith("which claude");
+    expect(mockExec).toHaveBeenCalledWith(expect.stringContaining("claude"));
   });
 
   it("isAvailable returns false when claude CLI is not found", async () => {

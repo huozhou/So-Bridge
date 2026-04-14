@@ -26,3 +26,13 @@ export async function openInBrowser(url: string): Promise<void> {
     });
   });
 }
+
+export function getBrowserOpenFailureMessage(url: string): string {
+  if (process.platform === "linux") {
+    return `Cannot open admin automatically. Open ${url} in your browser, or make sure xdg-open is available.`;
+  }
+  if (process.platform === "win32") {
+    return `Cannot open admin automatically. Open ${url} in your browser manually.`;
+  }
+  return `Cannot open admin automatically. Open ${url} in your browser manually.`;
+}

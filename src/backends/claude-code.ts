@@ -1,12 +1,10 @@
-import { exec, spawn, type ChildProcess } from "node:child_process";
+import { spawn, type ChildProcess } from "node:child_process";
 import { homedir } from "node:os";
-import { promisify } from "node:util";
 
 import type { ExecutionBackend, ExecutionResult, StreamChunk, Task } from "../types.js";
+import { isCommandAvailable } from "./command-discovery.js";
 import { composeTaskPrompt } from "./prompt-utils.js";
 import { mergeChildStreams, collectStream } from "./stream-utils.js";
-
-const execAsync = promisify(exec);
 
 export class ClaudeCodeBackend implements ExecutionBackend {
   readonly name = "claude-code" as const;
@@ -19,12 +17,7 @@ export class ClaudeCodeBackend implements ExecutionBackend {
   }
 
   async isAvailable(): Promise<boolean> {
-    try {
-      await execAsync("which claude");
-      return true;
-    } catch {
-      return false;
-    }
+    return isCommandAvailable("claude");
   }
 
   execute(task: Task): Promise<ExecutionResult> {

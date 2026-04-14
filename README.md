@@ -30,6 +30,8 @@ You (in Slack/Lark)          so-bridge           AI Code Assistant
 
 ## Quick Start
 
+Requires Node.js 20 or later.
+
 ```bash
 npm install
 npm run build
@@ -130,28 +132,6 @@ Both platforms support real-time streaming output:
 - **Lark** — CardKit streaming. An interactive card updates live as the AI generates output.
 
 Streaming is automatic when your AI assistant supports it.
-
-## How It Works
-
-`so-bridge` runs on your machine and manages one active bridge:
-
-```
-Bot Connection  ──▶  so-bridge  ──▶  AI Assistant
-```
-
-All configuration is stored locally in your user data directory:
-
-| OS | Path |
-| --- | --- |
-| macOS | `~/Library/Application Support/so-bridge/` |
-| Linux | `~/.config/so-bridge/` |
-| Windows | `%AppData%\so-bridge\` |
-
-The admin console at `http://127.0.0.1:3000/admin` lets you manage:
-
-- **Bot Connections** — your Slack/Lark bot tokens
-- **AI Assistants** — which coding tools to use
-- **Current Bridge** — which bot is connected to which AI assistant
 
 ## License
 

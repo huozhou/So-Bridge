@@ -1,7 +1,8 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
-const root = resolve(import.meta.dirname, "..");
+const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const packageJsonPath = resolve(root, "package.json");
 const outputJsPath = resolve(root, "generated/version.js");
 const outputTypesPath = resolve(root, "generated/version.d.ts");

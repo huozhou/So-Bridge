@@ -5,7 +5,7 @@ import { rm } from "node:fs/promises";
 import { getSoBridgePaths, type SoBridgePaths } from "../app-paths.js";
 import { CLI_VERSION } from "../../generated/version.js";
 import { SoBridgeStore } from "../storage/so-bridge-store.js";
-import { openInBrowser } from "./browser.js";
+import { getBrowserOpenFailureMessage, openInBrowser } from "./browser.js";
 import { runOpenCommand } from "./commands/open.js";
 import { runPurgeCommand } from "./commands/purge.js";
 import { runStartCommand } from "./commands/start.js";
@@ -134,7 +134,13 @@ export async function runCli(argv: string[], deps: CliDeps): Promise<void> {
     if (command === "open") {
       await runOpenCommand({
         isReachable: deps.isReachable ?? (async () => false),
-        openUrl: deps.openUrl ?? openInBrowser,
+        openUrl: async (url) => {
+          try {
+            await (deps.openUrl ?? openInBrowser)(url);
+          } catch {
+            throw new Error(getBrowserOpenFailureMessage(url));
+          }
+        },
         url: deps.url ?? "http://127.0.0.1:3000/admin",
         print: deps.print,
       });

@@ -5,6 +5,7 @@ import { createInterface } from "node:readline";
 import { promisify } from "node:util";
 
 import type { ExecutionBackend, ExecutionResult, StreamChunk, Task } from "../types.js";
+import { isCommandAvailable } from "./command-discovery.js";
 import { composeTaskPrompt } from "./prompt-utils.js";
 import { collectStream } from "./stream-utils.js";
 
@@ -29,6 +30,13 @@ export class CursorBackend implements ExecutionBackend {
   private async findAgentBinary(): Promise<string | null> {
     for (const bin of AGENT_BINARY_CANDIDATES) {
       try {
+        if (bin === "agent") {
+          if (await isCommandAvailable("agent")) {
+            return bin;
+          }
+          continue;
+        }
+
         await execAsync(`"${bin}" --version`);
         return bin;
       } catch {}
