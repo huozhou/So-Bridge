@@ -14,6 +14,80 @@ describe("validateSoBridgeConfig", () => {
 
     expect(result.config.bridgeProfiles).toEqual([]);
     expect(result.config.directoryPolicy.mode).toBe("open");
+    expect(result.config.server.port).toBe(3000);
+  });
+
+  it.each([0, 65536])("rejects invalid server port %s", (port) => {
+    const config = createDefaultSoBridgeConfig();
+    config.server.port = port;
+
+    const result = validateSoBridgeConfig(config);
+
+    expect(result.ok).toBe(false);
+    if (result.ok) {
+      throw new Error("Expected validation to fail");
+    }
+
+    expect(result.issues).toContainEqual({
+      path: "server.port",
+      message: "server.port must be an integer between 1 and 65535",
+    });
+  });
+
+  it.each([3000.5, "3000"])("rejects non-integer server port %s", (port) => {
+    const result = validateSoBridgeConfig({
+      ...createDefaultSoBridgeConfig(),
+      server: {
+        port,
+      },
+    });
+
+    expect(result.ok).toBe(false);
+    if (result.ok) {
+      throw new Error("Expected validation to fail");
+    }
+
+    expect(result.issues).toContainEqual({
+      path: "server.port",
+      message: "server.port must be an integer between 1 and 65535",
+    });
+  });
+
+  it.each([null, 123, []])("rejects non-object server container %s", (server) => {
+    const result = validateSoBridgeConfig({
+      ...createDefaultSoBridgeConfig(),
+      server,
+    });
+
+    expect(result.ok).toBe(false);
+    if (result.ok) {
+      throw new Error("Expected validation to fail");
+    }
+
+    expect(result.issues).toContainEqual({
+      path: "server",
+      message: "server must be an object",
+    });
+  });
+
+  it("normalizes legacy configs missing server fields", () => {
+    const result = validateSoBridgeConfig({
+      botIntegrations: [],
+      aiAssistants: [],
+      bridgeProfiles: [],
+      directoryPolicy: {
+        mode: "open",
+        allowedPaths: [],
+        selectedPath: null,
+      },
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) {
+      throw new Error("Expected validation to succeed");
+    }
+
+    expect(result.config.server.port).toBe(3000);
   });
 
   it("rejects bridge profiles that reference unknown resources", () => {

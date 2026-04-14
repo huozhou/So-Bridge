@@ -302,6 +302,50 @@ function normalizeDirectoryPolicy(
   };
 }
 
+function normalizeServer(
+  value: unknown,
+  issues: ValidationIssue[],
+  defaults: SoBridgeConfig,
+): SoBridgeConfig["server"] {
+  if (value === undefined) {
+    return {
+      port: defaults.server.port,
+    };
+  }
+
+  if (!isRecord(value)) {
+    issues.push({
+      path: "server",
+      message: "server must be an object",
+    });
+    return {
+      port: defaults.server.port,
+    };
+  }
+
+  const port = value.port;
+
+  if (port === undefined) {
+    return {
+      port: defaults.server.port,
+    };
+  }
+
+  if (!Number.isInteger(port) || port < 1 || port > 65535) {
+    issues.push({
+      path: "server.port",
+      message: "server.port must be an integer between 1 and 65535",
+    });
+    return {
+      port: defaults.server.port,
+    };
+  }
+
+  return {
+    port,
+  };
+}
+
 function validateReferences(config: SoBridgeConfig, issues: ValidationIssue[]): void {
   const botIds = new Set(config.botIntegrations.map((item) => item.id));
   const aiIds = new Set(config.aiAssistants.map((item) => item.id));
@@ -333,6 +377,7 @@ export function validateSoBridgeConfig(input: unknown): SoBridgeValidationResult
     aiAssistants: normalizeAIAssistants(source.aiAssistants, issues),
     bridgeProfiles: normalizeBridgeProfiles(source.bridgeProfiles, issues),
     directoryPolicy: normalizeDirectoryPolicy(source.directoryPolicy, issues, defaults),
+    server: normalizeServer(source.server, issues, defaults),
   };
 
   validateReferences(config, issues);

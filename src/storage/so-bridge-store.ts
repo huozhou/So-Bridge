@@ -103,6 +103,7 @@ function normalizeState(input: unknown): SoBridgeState {
     typeof input === "object" && input !== null && !Array.isArray(input)
       ? (input as Record<string, unknown>)
       : {};
+  const runtimeServer = normalizeRuntimeServer(source.runtimeServer);
 
   return {
     activeBridgeProfileId:
@@ -117,7 +118,43 @@ function normalizeState(input: unknown): SoBridgeState {
       typeof source.lastError === "string" || source.lastError === null
         ? source.lastError
         : defaults.lastError,
+    runtimeServer,
   };
+}
+
+function normalizeRuntimeServer(
+  value: unknown,
+): SoBridgeState["runtimeServer"] {
+  if (!isRuntimeServerRecord(value)) {
+    return null;
+  }
+
+  return {
+    host: value.host,
+    port: value.port,
+    startedAt: value.startedAt,
+  };
+}
+
+function isRuntimeServerRecord(
+  value: unknown,
+): value is {
+  host: string;
+  port: number;
+  startedAt: string;
+} {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return false;
+  }
+
+  const source = value as Record<string, unknown>;
+  return (
+    typeof source.host === "string" &&
+    Number.isInteger(source.port) &&
+    source.port >= 1 &&
+    source.port <= 65535 &&
+    typeof source.startedAt === "string"
+  );
 }
 
 async function writeJsonFile(path: string, value: unknown): Promise<void> {

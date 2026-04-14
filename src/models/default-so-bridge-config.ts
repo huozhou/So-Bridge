@@ -9,12 +9,16 @@ const DEFAULT_SO_BRIDGE_CONFIG: SoBridgeConfig = {
     allowedPaths: [],
     selectedPath: null,
   },
+  server: {
+    port: 3000,
+  },
 };
 
 const DEFAULT_SO_BRIDGE_STATE: SoBridgeState = {
   activeBridgeProfileId: null,
   lastAppliedAt: null,
   lastError: null,
+  runtimeServer: null,
 };
 
 export function createDefaultSoBridgeConfig(): SoBridgeConfig {

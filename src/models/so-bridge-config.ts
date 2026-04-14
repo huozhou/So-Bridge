@@ -34,17 +34,29 @@ export interface DirectoryPolicy {
   selectedPath: string | null;
 }
 
+export interface ServerConfig {
+  port: number;
+}
+
+export interface RuntimeServerState {
+  host: string;
+  port: number;
+  startedAt: string;
+}
+
 export interface SoBridgeConfig {
   botIntegrations: BotIntegration[];
   aiAssistants: AIAssistant[];
   bridgeProfiles: BridgeProfile[];
   directoryPolicy: DirectoryPolicy;
+  server: ServerConfig;
 }
 
 export interface SoBridgeState {
   activeBridgeProfileId: string | null;
   lastAppliedAt: string | null;
   lastError: string | null;
+  runtimeServer: RuntimeServerState | null;
 }
 
 export interface ValidationIssue {

@@ -1,4 +1,4 @@
-import { existsSync, mkdtempSync, readFileSync } from "node:fs";
+import { existsSync, mkdtempSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -58,5 +58,62 @@ describe("SoBridgeStore", () => {
     expect(writtenState).toEqual(state);
     expect(reloaded.config).toEqual(config);
     expect(reloaded.state).toEqual(state);
+  });
+
+  it("normalizes legacy config and state files missing new fields", async () => {
+    const root = mkdtempSync(join(tmpdir(), "so-bridge-store-"));
+    const paths = createPaths(root);
+    const store = new SoBridgeStore(paths);
+    mkdirSync(paths.configDir, { recursive: true });
+    mkdirSync(paths.dataDir, { recursive: true });
+
+    writeFileSync(
+      paths.configFile,
+      JSON.stringify({
+        botIntegrations: [],
+        aiAssistants: [],
+        bridgeProfiles: [],
+        directoryPolicy: {
+          mode: "open",
+          allowedPaths: [],
+          selectedPath: null,
+        },
+      }),
+      "utf8",
+    );
+    writeFileSync(
+      paths.stateFile,
+      JSON.stringify({
+        activeBridgeProfileId: null,
+        lastAppliedAt: null,
+        lastError: null,
+      }),
+      "utf8",
+    );
+
+    const result = await store.readAll();
+
+    expect(result.createdDefaultConfig).toBe(false);
+    expect(result.createdDefaultState).toBe(false);
+    expect(result.config.server.port).toBe(3000);
+    expect(result.state.runtimeServer).toBeNull();
+  });
+
+  it("round-trips a valid runtimeServer state", async () => {
+    const root = mkdtempSync(join(tmpdir(), "so-bridge-store-"));
+    const store = new SoBridgeStore(createPaths(root));
+    const state = createDefaultSoBridgeState();
+
+    state.runtimeServer = {
+      host: "127.0.0.1",
+      port: 3000,
+      startedAt: "2026-04-14T00:00:00.000Z",
+    };
+
+    await store.writeState(state);
+    const result = await store.readState();
+
+    expect(result.createdDefault).toBe(false);
+    expect(result.state.runtimeServer).toEqual(state.runtimeServer);
   });
 });
