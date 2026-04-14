@@ -9,6 +9,7 @@ import { ProfileAdminService } from "../../src/admin/profile-service.js";
 describe("ProfileAdminService", () => {
   it("returns current bridge summary with selected Bot Connection, AI Assistant, and target project", async () => {
     const config = createDefaultSoBridgeConfig();
+    config.server.port = 4100;
     config.botIntegrations.push({
       id: "bot_1",
       name: "ignored-name",
@@ -32,6 +33,11 @@ describe("ProfileAdminService", () => {
     config.directoryPolicy.selectedPath = "/repo/a";
     const state = createDefaultSoBridgeState();
     state.activeBridgeProfileId = "profile_1";
+    state.runtimeServer = {
+      host: "127.0.0.1",
+      port: 4200,
+      startedAt: "2026-04-14T08:00:00.000Z",
+    };
 
     const service = new ProfileAdminService({
       loadSnapshot: vi.fn().mockResolvedValue({ config, state }),
@@ -46,7 +52,60 @@ describe("ProfileAdminService", () => {
       bridgeState: "Enabled",
       directoryMode: "restricted",
       selectedPath: "/repo/a",
+      savedServer: {
+        host: "127.0.0.1",
+        port: 4100,
+      },
+      runtimeServer: {
+        host: "127.0.0.1",
+        port: 4200,
+        startedAt: "2026-04-14T08:00:00.000Z",
+      },
     });
+  });
+
+  it("returns saved server details and null runtime server when not running", async () => {
+    const config = createDefaultSoBridgeConfig();
+    config.server.port = 4300;
+    const state = createDefaultSoBridgeState();
+    const service = new ProfileAdminService({
+      loadSnapshot: vi.fn().mockResolvedValue({ config, state }),
+      saveSnapshot: vi.fn(),
+      activateProfile: vi.fn(),
+    });
+
+    await expect(service.getCurrentBridge()).resolves.toEqual({
+      activeBridgeProfileId: null,
+      botConnectionLabel: null,
+      aiAssistantLabel: null,
+      bridgeState: "Incomplete",
+      directoryMode: "open",
+      selectedPath: null,
+      savedServer: {
+        host: "127.0.0.1",
+        port: 4300,
+      },
+      runtimeServer: null,
+    });
+  });
+
+  it("returns server settings in admin resources", async () => {
+    const config = createDefaultSoBridgeConfig();
+    config.server.port = 4400;
+    const state = createDefaultSoBridgeState();
+    const service = new ProfileAdminService({
+      loadSnapshot: vi.fn().mockResolvedValue({ config, state }),
+      saveSnapshot: vi.fn(),
+      activateProfile: vi.fn(),
+    });
+
+    await expect(service.getResources()).resolves.toEqual(
+      expect.objectContaining({
+        server: {
+          port: 4400,
+        },
+      }),
+    );
   });
 
   it("creates a Bot integration", async () => {
@@ -318,5 +377,46 @@ describe("ProfileAdminService", () => {
     });
 
     await expect(service.activateBridgeProfile("profile_1")).rejects.toThrow("missing appToken");
+  });
+
+  it("updates saved server settings", async () => {
+    const config = createDefaultSoBridgeConfig();
+    const state = createDefaultSoBridgeState();
+    const saveSnapshot = vi.fn().mockResolvedValue(undefined);
+    const service = new ProfileAdminService({
+      loadSnapshot: vi.fn().mockResolvedValue({ config, state }),
+      saveSnapshot,
+      activateProfile: vi.fn(),
+    });
+
+    await expect(service.updateServerSettings({ port: 4500 })).resolves.toEqual({ port: 4500 });
+    expect(saveSnapshot).toHaveBeenCalledWith(
+      expect.objectContaining({
+        server: {
+          port: 4500,
+        },
+      }),
+      state,
+    );
+  });
+
+  it("rejects invalid saved server ports", async () => {
+    const config = createDefaultSoBridgeConfig();
+    const state = createDefaultSoBridgeState();
+    const service = new ProfileAdminService({
+      loadSnapshot: vi.fn().mockResolvedValue({ config, state }),
+      saveSnapshot: vi.fn(),
+      activateProfile: vi.fn(),
+    });
+
+    await expect(service.updateServerSettings({ port: 0 })).rejects.toThrow(
+      "Server port must be an integer between 1 and 65535",
+    );
+    await expect(service.updateServerSettings({ port: 65536 })).rejects.toThrow(
+      "Server port must be an integer between 1 and 65535",
+    );
+    await expect(service.updateServerSettings({ port: 12.5 })).rejects.toThrow(
+      "Server port must be an integer between 1 and 65535",
+    );
   });
 });

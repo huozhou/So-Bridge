@@ -1,3 +1,41 @@
+export function getServerPortInputValue(input: {
+  savedPort: number;
+  draft: string;
+  dirty: boolean;
+}): string {
+  return input.dirty ? input.draft : String(input.savedPort);
+}
+
+export function createServerPortDraftController(initialSavedPort: number) {
+  const state = {
+    savedPort: initialSavedPort,
+    draft: String(initialSavedPort),
+    dirty: false,
+  };
+
+  return {
+    render(input: { value: string }) {
+      input.value = getServerPortInputValue({
+        savedPort: state.savedPort,
+        draft: state.draft,
+        dirty: state.dirty,
+      });
+    },
+    handleInput(nextValue: string) {
+      state.draft = nextValue;
+      state.dirty = true;
+    },
+    resetSavedPort(nextSavedPort: number) {
+      state.savedPort = nextSavedPort;
+      state.draft = String(nextSavedPort);
+      state.dirty = false;
+    },
+    getState() {
+      return { ...state };
+    },
+  };
+}
+
 export function renderProfileAdminPage(): string {
   return `<!doctype html>
 <html lang="en">
@@ -146,6 +184,33 @@ export function renderProfileAdminPage(): string {
         font-size: 14px;
       }
       .message.error { color: #b91c1c; }
+      .server-panel {
+        margin-top: 14px;
+        padding: 22px;
+        border: 1px solid var(--border);
+        border-radius: 24px;
+        background: var(--panel);
+      }
+      .server-panel h2 {
+        font-size: 16px;
+      }
+      .server-grid {
+        display: grid;
+        gap: 14px;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        margin-top: 18px;
+      }
+      .server-item {
+        padding: 18px;
+        border: 1px solid var(--border);
+        border-radius: 20px;
+        background: var(--surface);
+      }
+      .server-warning {
+        margin-top: 16px;
+        color: var(--muted);
+        font-size: 14px;
+      }
       .layout {
         display: grid;
         gap: 20px;
@@ -367,6 +432,7 @@ export function renderProfileAdminPage(): string {
       }
       @media (max-width: 900px) {
         .bridge-shell,
+        .server-grid,
         .layout,
         .split {
           grid-template-columns: 1fr;
@@ -407,6 +473,25 @@ export function renderProfileAdminPage(): string {
             <span class="bridge-note" id="current-ai-note">Add or select an AI Assistant below.</span>
           </article>
         </div>
+
+        <article class="server-panel">
+          <h2>Server</h2>
+          <div class="server-grid">
+            <div class="server-item">
+              <div class="bridge-label">Last Known Runtime</div>
+              <strong class="bridge-value" id="runtime-address">Not running</strong>
+              <span class="bridge-note" id="runtime-note">No runtime has been recorded.</span>
+            </div>
+            <div class="server-item">
+              <div class="bridge-label">Saved Port</div>
+              <strong class="bridge-value" id="saved-port">3000</strong>
+              <span class="bridge-note">This saved port will be used the next time the bridge starts.</span>
+            </div>
+          </div>
+          <div class="server-warning" id="server-override-note" hidden>
+            The recorded runtime port differs from the saved port. This may reflect a temporary CLI override.
+          </div>
+        </article>
 
         <div class="message" id="page-message"></div>
       </section>
@@ -502,6 +587,10 @@ export function renderProfileAdminPage(): string {
       const currentBotNote = document.querySelector("#current-bot-note");
       const currentAiLabel = document.querySelector("#current-ai-label");
       const currentAiNote = document.querySelector("#current-ai-note");
+      const runtimeAddress = document.querySelector("#runtime-address");
+      const runtimeNote = document.querySelector("#runtime-note");
+      const savedPort = document.querySelector("#saved-port");
+      const serverOverrideNote = document.querySelector("#server-override-note");
       const bridgeState = document.querySelector("#bridge-state");
       const pageMessage = document.querySelector("#page-message");
       const botList = document.querySelector("#bot-integrations");
@@ -732,6 +821,8 @@ export function renderProfileAdminPage(): string {
           return;
         }
 
+        const currentBridge = state.currentBridge;
+        const runtimeServer = currentBridge.runtimeServer;
         syncSelectionFromActiveProfile();
         const selectedBot = getSelectedBot();
         const selectedAssistant = getSelectedAssistant();
@@ -746,6 +837,12 @@ export function renderProfileAdminPage(): string {
         currentBotNote.textContent = selectedBot ? "" : "Add or select a Bot Connection below.";
         currentAiLabel.textContent = selectedAssistant ? assistantLabels[selectedAssistant.provider] : "Not configured";
         currentAiNote.textContent = selectedAssistant ? "" : "Add or select an AI Assistant below.";
+        runtimeAddress.textContent = runtimeServer ? runtimeServer.host + ":" + runtimeServer.port : "Not running";
+        runtimeNote.textContent = runtimeServer
+          ? "This recorded runtime info may be stale. Last recorded at " + new Date(runtimeServer.startedAt).toLocaleString("en-US")
+          : "No runtime has been recorded.";
+        savedPort.textContent = String(currentBridge.savedServer.port);
+        serverOverrideNote.hidden = !(runtimeServer && runtimeServer.port !== currentBridge.savedServer.port);
         bridgeState.textContent = isConfigured ? "Configured" : "Incomplete";
         bridgeState.className = isConfigured ? "status-chip configured" : "status-chip incomplete";
 
@@ -1333,6 +1430,21 @@ export function renderProjectAccessSettingsPage(): string {
         </div>
 
         <div class="stack">
+          <div class="access-panel">
+            <div class="switch-copy">
+              <strong>Server</strong>
+              <span>This saved port will be used the next time the bridge starts.</span>
+              <span>The current runtime may use a temporary CLI override instead.</span>
+            </div>
+            <div class="control">
+              <label for="server-port">Server Port</label>
+              <div class="row">
+                <input id="server-port" class="field" inputmode="numeric" placeholder="3000" />
+                <button id="save-server-settings" type="button">Save Server Settings</button>
+              </div>
+            </div>
+          </div>
+
           <div class="switch-row">
             <div class="switch-copy">
               <strong>Restrict Project Access</strong>
@@ -1360,6 +1472,8 @@ export function renderProjectAccessSettingsPage(): string {
     </main>
 
     <script type="module">
+      const serverPortInput = document.querySelector("#server-port");
+      const saveServerButton = document.querySelector("#save-server-settings");
       const restrictToggle = document.querySelector("#restrict-toggle");
       const pathInput = document.querySelector("#path-input");
       const addPathButton = document.querySelector("#add-path");
@@ -1369,12 +1483,16 @@ export function renderProjectAccessSettingsPage(): string {
       const hint = document.querySelector("#settings-hint");
 
       const state = {
+        server: {
+          port: 3000,
+        },
         directoryPolicy: {
           mode: "open",
           allowedPaths: [],
           selectedPath: null,
         },
       };
+      const serverPortController = createServerPortDraftController(state.server.port);
 
       function setMessage(text, isError = false) {
         message.textContent = text ?? "";
@@ -1382,6 +1500,7 @@ export function renderProjectAccessSettingsPage(): string {
       }
 
       function render() {
+        serverPortController.render(serverPortInput);
         restrictToggle.checked = state.directoryPolicy.mode === "restricted";
         hint.textContent =
           state.directoryPolicy.mode === "restricted"
@@ -1427,7 +1546,26 @@ export function renderProjectAccessSettingsPage(): string {
           throw new Error("Failed to load admin resources");
         }
         const resources = await response.json();
+        state.server = resources.server;
+        serverPortController.resetSavedPort(resources.server.port);
         state.directoryPolicy = resources.directoryPolicy;
+        render();
+      }
+
+      async function persistServerSettings(port) {
+        const response = await fetch("/api/admin/server-settings", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ port }),
+        });
+
+        if (!response.ok) {
+          const payload = await response.json().catch(() => ({ error: "Failed to save server settings" }));
+          throw new Error(payload.error ?? "Failed to save server settings");
+        }
+
+        state.server = await response.json();
+        serverPortController.resetSavedPort(state.server.port);
         render();
       }
 
@@ -1508,6 +1646,31 @@ export function renderProjectAccessSettingsPage(): string {
         }
       }
 
+      async function saveServerSettings() {
+        const port = Number(serverPortController.getState().draft);
+        if (!Number.isInteger(port) || port < 1 || port > 65535) {
+          setMessage("Server port must be an integer between 1 and 65535", true);
+          return;
+        }
+
+        saveServerButton.disabled = true;
+        setMessage("Saving server settings...");
+        try {
+          await persistServerSettings(port);
+          setMessage("Server settings updated.");
+        } catch (error) {
+          setMessage(error instanceof Error ? error.message : String(error), true);
+        } finally {
+          saveServerButton.disabled = false;
+        }
+      }
+
+      saveServerButton.addEventListener("click", () => {
+        void saveServerSettings();
+      });
+      serverPortInput.addEventListener("input", () => {
+        serverPortController.handleInput(serverPortInput.value);
+      });
       addPathButton.addEventListener("click", () => {
         void addPath();
       });

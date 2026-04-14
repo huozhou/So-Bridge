@@ -5,6 +5,10 @@ function toErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
+function isServerSettingsValidationError(error: unknown): boolean {
+  return error instanceof Error && error.message === "Server port must be an integer between 1 and 65535";
+}
+
 function getRouteParam(value: string | string[] | undefined): string | null {
   if (typeof value === "string") {
     return value;
@@ -27,6 +31,7 @@ export function createProfileAdminRouter(service: {
   createBridgeProfile(input: unknown): Promise<unknown>;
   activateBridgeProfile(profileId: string | null): Promise<unknown>;
   updateDirectoryPolicy(input: unknown): Promise<unknown>;
+  updateServerSettings(input: unknown): Promise<unknown>;
 }): Router {
   const router = Router();
 
@@ -129,6 +134,14 @@ export function createProfileAdminRouter(service: {
       res.json(await service.updateDirectoryPolicy(req.body));
     } catch (error) {
       res.status(500).json({ error: toErrorMessage(error) });
+    }
+  });
+
+  router.put("/api/admin/server-settings", async (req: Request, res: Response) => {
+    try {
+      res.json(await service.updateServerSettings(req.body));
+    } catch (error) {
+      res.status(isServerSettingsValidationError(error) ? 400 : 500).json({ error: toErrorMessage(error) });
     }
   });
 

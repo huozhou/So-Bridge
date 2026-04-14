@@ -27,6 +27,7 @@ async function invokeRoute(
     createBridgeProfile: vi.fn(),
     activateBridgeProfile: vi.fn(),
     updateDirectoryPolicy: vi.fn(),
+    updateServerSettings: vi.fn(),
     ...serviceOverrides,
   });
 
@@ -100,10 +101,13 @@ describe("createProfileAdminRouter", () => {
     expect(response.status).toBe(200);
     expect(response.headers["content-type"]).toContain("text/html");
     expect(response.text).toContain("Project Access");
+    expect(response.text).toContain("Server");
+    expect(response.text).toContain("Server Port");
     expect(response.text).toContain("Allowed Path");
     expect(response.text).toContain("Restrict Project Access");
     expect(response.text).not.toContain("Save Project Access");
     expect(response.text).toContain("/api/admin/directory-policy");
+    expect(response.text).toContain("/api/admin/server-settings");
   });
 
   it("returns the current bridge payload", async () => {
@@ -115,6 +119,15 @@ describe("createProfileAdminRouter", () => {
         bridgeState: "Enabled",
         directoryMode: "restricted",
         selectedPath: "/repo/a",
+        savedServer: {
+          host: "127.0.0.1",
+          port: 3000,
+        },
+        runtimeServer: {
+          host: "127.0.0.1",
+          port: 3200,
+          startedAt: "2026-04-14T08:00:00.000Z",
+        },
       }),
     });
 
@@ -126,6 +139,49 @@ describe("createProfileAdminRouter", () => {
       bridgeState: "Enabled",
       directoryMode: "restricted",
       selectedPath: "/repo/a",
+      savedServer: {
+        host: "127.0.0.1",
+        port: 3000,
+      },
+      runtimeServer: {
+        host: "127.0.0.1",
+        port: 3200,
+        startedAt: "2026-04-14T08:00:00.000Z",
+      },
+    });
+  });
+
+  it("updates saved server settings", async () => {
+    const payload = { port: 3300 };
+    const updateServerSettings = vi.fn().mockResolvedValue(payload);
+
+    const response = await invokeRoute(
+      "PUT",
+      "/api/admin/server-settings",
+      { updateServerSettings },
+      payload,
+    );
+
+    expect(updateServerSettings).toHaveBeenCalledWith(payload);
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual(payload);
+  });
+
+  it("returns a validation error when saved server settings are invalid", async () => {
+    const updateServerSettings = vi
+      .fn()
+      .mockRejectedValue(new Error("Server port must be an integer between 1 and 65535"));
+
+    const response = await invokeRoute(
+      "PUT",
+      "/api/admin/server-settings",
+      { updateServerSettings },
+      { port: 0 },
+    );
+
+    expect(response.status).toBe(400);
+    expect(response.body).toEqual({
+      error: "Server port must be an integer between 1 and 65535",
     });
   });
 

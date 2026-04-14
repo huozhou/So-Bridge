@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 
 import type { SoBridgeConfig, SoBridgeState } from "../models/so-bridge-config.js";
+import { DEFAULT_SERVER_HOST } from "../server/server-binding.js";
 import type {
   AIAssistantInput,
   AdminResourcesDto,
@@ -37,6 +38,17 @@ export class ProfileAdminService {
       bridgeState: bot && ai ? "Enabled" : "Incomplete",
       directoryMode: config.directoryPolicy.mode,
       selectedPath: config.directoryPolicy.selectedPath,
+      savedServer: {
+        host: DEFAULT_SERVER_HOST,
+        port: config.server.port,
+      },
+      runtimeServer: state.runtimeServer
+        ? {
+            host: state.runtimeServer.host,
+            port: state.runtimeServer.port,
+            startedAt: state.runtimeServer.startedAt,
+          }
+        : null,
     };
   }
 
@@ -48,6 +60,7 @@ export class ProfileAdminService {
       aiAssistants: config.aiAssistants,
       bridgeProfiles: config.bridgeProfiles,
       directoryPolicy: config.directoryPolicy,
+      server: config.server,
     };
   }
 
@@ -191,6 +204,20 @@ export class ProfileAdminService {
     await this.deps.saveSnapshot(nextConfig, state);
     return nextConfig.directoryPolicy;
   }
+
+  async updateServerSettings(input: { port: number }): Promise<SoBridgeConfig["server"]> {
+    validateServerPort(input.port);
+    const { config, state } = await this.deps.loadSnapshot();
+    const nextConfig: SoBridgeConfig = {
+      ...config,
+      server: {
+        port: input.port,
+      },
+    };
+
+    await this.deps.saveSnapshot(nextConfig, state);
+    return nextConfig.server;
+  }
 }
 
 function validateBotIntegrationInput(input: BotIntegrationInput): void {
@@ -224,6 +251,12 @@ function validateAIAssistantInput(input: AIAssistantInput): void {
   }
   if (!input.provider) {
     throw new Error("AI assistant provider is required");
+  }
+}
+
+function validateServerPort(port: number): void {
+  if (!Number.isInteger(port) || port < 1 || port > 65535) {
+    throw new Error("Server port must be an integer between 1 and 65535");
   }
 }
 
