@@ -2,6 +2,12 @@
 
 English | [简体中文](./README.zh-CN.md)
 
+![CI](https://img.shields.io/github/actions/workflow/status/huozhou/So-Bridge/node.js.yml?branch=main&label=CI)
+![Node >=20](https://img.shields.io/badge/node-%3E%3D20-339933?logo=node.js&logoColor=white)
+![License](https://img.shields.io/github/license/huozhou/So-Bridge)
+![GitHub release](https://img.shields.io/github/v/release/huozhou/So-Bridge)
+<!-- ![GitHub stars](https://img.shields.io/github/stars/huozhou/So-Bridge?style=social) -->
+
 Connect your IM directly to your AI coding assistant CLI.
 
 `so-bridge` turns Slack or Lark into a live window into your AI coding workflow. You can start work from chat, receive progress updates without staring at a terminal, and keep an eye on long-running work from your phone while your workstation stays at home or in the office.
@@ -141,4 +147,4 @@ Streaming is automatic when your AI assistant supports it.
 
 ## License
 
-Private.
+MIT.

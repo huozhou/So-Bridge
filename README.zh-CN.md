@@ -2,6 +2,12 @@
 
 [English](./README.md) | 简体中文
 
+![CI](https://img.shields.io/github/actions/workflow/status/huozhou/So-Bridge/node.js.yml?branch=main&label=CI)
+![Node >=20](https://img.shields.io/badge/node-%3E%3D20-339933?logo=node.js&logoColor=white)
+![License](https://img.shields.io/github/license/huozhou/So-Bridge)
+![GitHub release](https://img.shields.io/github/v/release/huozhou/So-Bridge)
+<!-- ![GitHub stars](https://img.shields.io/github/stars/huozhou/So-Bridge?style=social) -->
+
 把你的即时通讯工具直接连接到 AI Code Assistant CLI。
 
 `so-bridge` 是一个本地桥接服务，把 Slack 或飞书连接到你的 AI 编码助手。你可以直接在 IM 里发起任务、接收进度更新和结果，不必一直盯着终端或工作机。
@@ -163,4 +169,4 @@ Bot Connection  ──▶  so-bridge  ──▶  AI Assistant
 
 ## License
 
-Private.
+MIT.
